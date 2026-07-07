@@ -59,6 +59,9 @@
     .item .ititle { font-size: 15px; flex: 1; }
     .item .badge { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 1px 5px; }
     .item .who { font-size: 12px; font-weight: 600; }
+    .item.now { background: #FFF3E0; }
+    .item.now .time { color: #B4691A; }
+    .nowbadge { font-size: 11px; color: #fff; background: #C0392B; border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
     .hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 12px; }
     .empty { text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
 
@@ -352,6 +355,8 @@
       return '기타';
     }
     function toMin(h) { var p = h.split(':'); return Number(p[0]) * 60 + Number(p[1]); }
+    function nowMinutes() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+    function withinNow(row) { var s = toMin(row.start), e = toMin(row.end), m = nowMinutes(); return e <= s ? (m >= s || m < e) : (m >= s && m < e); }
 
     /* ===== 색 조각 만들기 (그 날짜 일정 목록 items 를 받아서) ===== */
     function personSegments(items, who) {
@@ -392,24 +397,38 @@
              ' L' + i2[0].toFixed(1) + ' ' + i2[1].toFixed(1) + ' A' + rIn + ' ' + rIn + ' 0 ' + large + ' 0 ' + i1[0].toFixed(1) + ' ' + i1[1].toFixed(1) + ' Z';
     }
     function clockLabel(r, deg, text) { var p = pointOnCircle(r, deg); return '<text x="' + p[0].toFixed(1) + '" y="' + (p[1] + 4).toFixed(1) + '" text-anchor="middle" font-size="11" fill="#8C8B82">' + text + '</text>'; }
-    function buildClockSVG(items, who) {
+    function buildClockSVG(items, who, showNow) {
       var segs = segmentsFor(items, who);
       var arcs = segs.map(function (seg) { return '<path d="' + donutPath(78, 122, seg.s, seg.e) + '" fill="' + seg.color + '" stroke="#FFFFFF" stroke-width="1"/>'; }).join('');
+      // 작업 경계선마다 구분선 (각 조각 시작점에 방사형 선)
+      var dividers = segs.map(function (seg) {
+        var deg = (seg.s % 1440) / 1440 * 360, a = pointOnCircle(78, deg), b = pointOnCircle(122, deg);
+        return '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="#FFFFFF" stroke-width="1.6"/>';
+      }).join('');
       var marks = '<circle cx="150" cy="150" r="122" fill="none" stroke="var(--line)" stroke-width="0.5"/><circle cx="150" cy="150" r="78" fill="none" stroke="var(--line)" stroke-width="0.5"/>' +
                   clockLabel(138, 0, '밤 12') + clockLabel(138, 90, '6시') + clockLabel(138, 180, '낮 12') + clockLabel(138, 270, '18시');
+      // 지금 시각 바늘 (오늘 화면일 때만)
+      var nowMark = '';
+      if (showNow) {
+        var deg2 = nowMinutes() / 1440 * 360, p1 = pointOnCircle(68, deg2), p2 = pointOnCircle(130, deg2);
+        nowMark = '<line x1="' + p1[0].toFixed(1) + '" y1="' + p1[1].toFixed(1) + '" x2="' + p2[0].toFixed(1) + '" y2="' + p2[1].toFixed(1) + '" stroke="#C0392B" stroke-width="2.5" stroke-linecap="round"/>' +
+                  '<circle cx="' + p2[0].toFixed(1) + '" cy="' + p2[1].toFixed(1) + '" r="3.5" fill="#C0392B"/>';
+      }
       var center = '<text x="150" y="146" text-anchor="middle" font-size="15" font-weight="600" fill="#2C2C2A">' + people[who].name + '</text>' +
                    '<text x="150" y="164" text-anchor="middle" font-size="11" fill="#8C8B82">' + (who === 'all' ? '육아 당번' : '하루') + '</text>';
-      return '<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">' + arcs + marks + center + '</svg>';
+      return '<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">' + arcs + dividers + marks + nowMark + center + '</svg>';
     }
 
     /* ===== 목록 한 줄 (누르면 수정창) — 예외면 배지 표시 ===== */
     function itemHTML(row, showWho, dateStr) {
       var color = people[row.who].color;
+      var isNow = (dateStr === todayStr) && withinNow(row);
       var badge = row.scope ? '<span class="badge">예외</span>' : '';
+      var nowBadge = isNow ? '<span class="nowbadge">지금</span>' : '';
       var whoTag = showWho ? '<span class="who" style="color:' + color + '">' + people[row.who].name + '</span>' : '';
-      return '<div class="item" style="border-left-color:' + color + '" onclick="openEdit(' + row.id + ',\'' + dateStr + '\')">' +
+      return '<div class="item' + (isNow ? ' now' : '') + '" style="border-left-color:' + color + '" onclick="openEdit(' + row.id + ',\'' + dateStr + '\')">' +
                '<span class="time">' + row.start + ' – ' + row.end + '</span>' +
-               '<span class="ititle">' + row.title + ' ' + badge + '</span>' + whoTag + '</div>';
+               '<span class="ititle">' + row.title + ' ' + badge + nowBadge + '</span>' + whoTag + '</div>';
     }
     function listHTML(items, who, dateStr) {
       var rows = items.filter(function (r) { return who === 'all' || r.who === who; })
@@ -422,7 +441,7 @@
     var currentPerson = 'all';
     function renderDaily() {
       var items = itemsForDate(todayStr);
-      document.getElementById('daily-clock').innerHTML = buildClockSVG(items, currentPerson);
+      document.getElementById('daily-clock').innerHTML = buildClockSVG(items, currentPerson, true);
       document.getElementById('daily-legend').innerHTML = legendHTML(legendEntries(currentPerson, segmentsFor(items, currentPerson)));
       document.getElementById('daily-list').innerHTML = listHTML(items, currentPerson, todayStr);
     }
@@ -502,7 +521,7 @@
         var on = (k === who), style = on ? ' style="background:' + people[k].color + '"' : '';
         return '<button class="person' + (on ? ' active' : '') + '" data-person="' + k + '" onclick="pickDetailPerson(this)"' + style + '>' + people[k].name + '</button>';
       }).join('');
-      var clock = '<div class="clock-card"><div>' + buildClockSVG(items, who) + '</div><div class="legend">' + legendHTML(legendEntries(who, segmentsFor(items, who))) + '</div></div>';
+      var clock = '<div class="clock-card"><div>' + buildClockSVG(items, who, full === todayStr) + '</div><div class="legend">' + legendHTML(legendEntries(who, segmentsFor(items, who))) + '</div></div>';
       document.getElementById('day-detail').innerHTML =
         '<h3>' + (m + 1) + '월 ' + d + '일 (' + dow + ') 일정</h3>' +
         '<div class="people" style="margin-top:12px">' + picker + '</div>' + clock +
@@ -783,6 +802,12 @@
     monthState = { y: t.getFullYear(), m: t.getMonth() };
     renderMonth(); selectDay(t.getDate());
     initFirebase();   // 설정돼 있으면 실시간 공유 시작
+    // 1분마다 '지금' 표시를 갱신 (시계 바늘·목록 강조)
+    setInterval(function () {
+      todayStr = ymd(new Date());
+      renderDaily();
+      if (selectedDate) renderDayDetail(selectedDate);
+    }, 60000);
   </script>
 </body>
 </html>
