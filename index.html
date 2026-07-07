@@ -984,7 +984,7 @@
                '<div class="hist-body"><span class="hist-act ' + actCls + '">' + h.act + '</span> ' + escapeHtml(h.title) + (h.when ? ' <span class="hist-when">(' + h.when + ')</span>' : '') + '</div></div>';
       }).join('');
     }
-    function openHistory() { renderHistory(); document.getElementById('hist-modal').classList.add('open'); }
+    function openHistory() { document.getElementById('hist-modal').classList.add('open'); renderHistory(); }
     function closeHistory() { document.getElementById('hist-modal').classList.remove('open'); }
     function setDeviceWho(w) { deviceWho = w; try { localStorage.setItem('family_device_who', w); } catch (e) {} renderHistory(); }
 
