@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<!--
+============================================================
+  우리 가족 스케줄 앱  ·  4-2a단계 : 날짜별 예외 추가
+------------------------------------------------------------
+  이제 앱이 '날짜별'로 움직여요.
+   · 데일리 = 오늘,  주간 = 이번 주,  월간 = 고른 날짜
+   · 각 화면은 [기본 일정] + [그 날짜 예외]를 합쳐서 보여줘요.
+
+  + 로 일정을 추가할 때 '언제 적용할지'를 고를 수 있어요:
+   이 날짜만 / 이 주 / 이 달 / 올해 / 직접 선택 / 매일(기본)
+
+  (이 날짜만 '수정·삭제'는 다음 4-2b에서 붙여요.)
+============================================================
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>우리 가족 스케줄</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FAF8F4; --card: #FFFFFF; --ink: #2C2C2A;
+      --muted: #8C8B82; --line: #ECEAE2; --accent: #2B7A78;
+      --all: #6B8E5A; --dad: #3B7DBF; --mom: #E08A4E; --child: #34A79A;
+    }
+    body { background: var(--bg); color: var(--ink); font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+    .app { max-width: 480px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); position: relative; }
+    .header { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); background: var(--card); }
+    .header h1 { font-size: 19px; font-weight: 600; }
+    .header .date { margin-top: 3px; font-size: 13px; color: var(--muted); }
+    .content { flex: 1; overflow-y: auto; padding: 18px 16px; }
+    .tabbar { display: flex; border-top: 1px solid var(--line); background: var(--card); padding-bottom: env(safe-area-inset-bottom); }
+    .tab { flex: 1; border: none; background: none; padding: 9px 0 8px; color: var(--muted); font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .tab svg { width: 23px; height: 23px; }
+    .tab.active { color: var(--accent); font-weight: 600; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .screen-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+
+    .people { display: flex; gap: 8px; margin-bottom: 14px; }
+    .person { flex: 1; border: 1.5px solid var(--line); background: var(--card); border-radius: 999px; padding: 9px 0; font-size: 14px; color: var(--ink); cursor: pointer; font-family: inherit; }
+    .person.active { color: #fff; border-color: transparent; }
+
+    .clock-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 10px 12px; }
+    #daily-clock svg, #week-chart svg, #day-detail .clock-card svg { width: 100%; display: block; margin: 0 auto; }
+    #daily-clock svg, #day-detail .clock-card svg { max-width: 320px; }
+    #week-chart svg { max-width: 360px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 7px 14px; justify-content: center; margin-top: 8px; }
+    .legend .lg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .legend .dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+    .list { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-top: 14px; }
+    .item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--line); }
+    .item:last-child { border-bottom: none; }
+    .item .time { font-size: 13px; color: var(--muted); width: 96px; flex-shrink: 0; }
+    .item .ititle { font-size: 15px; flex: 1; }
+    .item .badge { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 1px 5px; }
+    .item .who { font-size: 12px; font-weight: 600; }
+    .hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 12px; }
+    .empty { text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
+
+    .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .cal-title { font-size: 15px; font-weight: 600; }
+    .cal-nav { border: 1px solid var(--line); background: var(--card); border-radius: 8px; width: 34px; height: 34px; font-size: 17px; cursor: pointer; color: var(--ink); }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-dow { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 0 4px; }
+    .cal-dow.sun { color: #C4553B; } .cal-dow.sat { color: #3B6FBF; }
+    .cal-cell { aspect-ratio: 1 / 1; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; position: relative; }
+    .cal-cell.blank { border: none; background: transparent; cursor: default; }
+    .cal-cell.today { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+    .cal-cell.selected { background: var(--accent); color: #fff; border-color: transparent; }
+    .cal-cell .mark { position: absolute; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--mom); }
+    .cal-cell.selected .mark { background: #fff; }
+    .day-detail { margin-top: 18px; }
+    .day-detail h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+
+    .fab { position: absolute; right: 16px; bottom: calc(66px + env(safe-area-inset-bottom)); width: 54px; height: 54px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 28px; line-height: 1; box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer; z-index: 30; }
+
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: flex-end; justify-content: center; z-index: 40; }
+    .modal.open { display: flex; }
+    .sheet { background: var(--card); width: 100%; max-width: 480px; border-radius: 18px 18px 0 0; padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); max-height: 90vh; overflow-y: auto; }
+    .sheet h3 { font-size: 17px; font-weight: 600; margin-bottom: 14px; }
+    .form-msg { color: #C0392B; font-size: 13px; margin-bottom: 10px; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .field input { width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 11px 12px; font-size: 15px; font-family: inherit; color: var(--ink); background: var(--bg); }
+    .who-pick { display: flex; gap: 8px; }
+    .who-pick .person { flex: 1; }
+    .times { display: flex; gap: 10px; }
+    .times .field { flex: 1; }
+    .edit-note { font-size: 12px; color: var(--muted); background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+    .scope-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+    .scope { border: 1.5px solid var(--line); background: var(--card); border-radius: 999px; padding: 8px 14px; font-size: 13px; color: var(--ink); cursor: pointer; font-family: inherit; }
+    .scope.active { background: var(--accent); color: #fff; border-color: transparent; }
+    .scope-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .minical { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+    .mc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .mc-title { font-size: 13px; font-weight: 600; }
+    .mc-nav { border: 1px solid var(--line); background: var(--card); border-radius: 8px; width: 30px; height: 30px; font-size: 15px; cursor: pointer; color: var(--ink); }
+    .mc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .mc-dow { text-align: center; font-size: 11px; color: var(--muted); }
+    .mc-cell { aspect-ratio: 1 / 1; border: 1px solid var(--line); border-radius: 8px; background: var(--card); display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; }
+    .mc-cell.blank { border: none; background: transparent; cursor: default; }
+    .mc-cell.sel { background: var(--accent); color: #fff; border-color: transparent; }
+    .mc-allbtn { width: 100%; margin: 8px 0; background: var(--card); color: var(--accent); border: 1.5px solid var(--accent); border-radius: 8px; padding: 8px 0; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .sheet-btns { display: flex; gap: 10px; margin-top: 6px; }
+    .btn { border: none; border-radius: 10px; padding: 13px 0; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-save { flex: 1; background: var(--accent); color: #fff; }
+    .btn-cancel { flex: 1; background: var(--bg); color: var(--ink); border: 1.5px solid var(--line); }
+    .btn-del { background: #FBECEC; color: #C0392B; border: 1.5px solid #F0D0D0; padding: 13px 16px; }
+    .btn-gcal { width: 100%; margin-top: 10px; background: var(--card); color: var(--accent); border: 1.5px solid var(--accent); border-radius: 10px; padding: 12px 0; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>우리 가족 스케줄</h1>
+      <div class="date" id="today">날짜 불러오는 중…</div>
+    </header>
+
+    <main class="content">
+      <section class="screen active" id="screen-daily">
+        <div class="screen-title" id="daily-title">데일리 · 오늘</div>
+        <div class="people" id="people">
+          <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
+          <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
+          <button class="person"        data-person="mom"   onclick="pickPerson(this)">엄마</button>
+          <button class="person"        data-person="child" onclick="pickPerson(this)">딸</button>
+        </div>
+        <div class="clock-card"><div id="daily-clock"></div><div class="legend" id="daily-legend"></div></div>
+        <div class="list" id="daily-list"></div>
+      </section>
+
+      <section class="screen" id="screen-week">
+        <div class="screen-title" id="week-title">주간 · 이번 주</div>
+        <div class="people" id="week-people">
+          <button class="person active" data-person="all"   onclick="pickWeekPerson(this)">전체</button>
+          <button class="person"        data-person="dad"   onclick="pickWeekPerson(this)">아빠</button>
+          <button class="person"        data-person="mom"   onclick="pickWeekPerson(this)">엄마</button>
+          <button class="person"        data-person="child" onclick="pickWeekPerson(this)">딸</button>
+        </div>
+        <div class="clock-card"><div id="week-chart"></div><div class="legend" id="week-legend"></div></div>
+        <div class="hint">예외를 넣은 날은 그 요일 칸만 다르게 보여요.</div>
+      </section>
+
+      <section class="screen" id="screen-month">
+        <div class="screen-title">월간 · 달력</div>
+        <div class="cal-head">
+          <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+          <div class="cal-title" id="cal-title"></div>
+          <button class="cal-nav" onclick="changeMonth(1)">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="day-detail" id="day-detail"></div>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="tab active" id="tab-daily" onclick="switchTab('daily')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>데일리
+      </button>
+      <button class="tab" id="tab-week" onclick="switchTab('week')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 5v14M15 5v14"/></svg>주간
+      </button>
+      <button class="tab" id="tab-month" onclick="switchTab('month')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>월간
+      </button>
+    </nav>
+
+    <button class="fab" onclick="openAdd()" aria-label="일정 추가">＋</button>
+
+    <div class="modal" id="modal">
+      <div class="sheet">
+        <h3 id="sheet-title">새 일정</h3>
+        <div class="form-msg" id="form-msg"></div>
+        <div class="edit-note" id="edit-note" style="display:none"></div>
+        <div class="field" id="edit-scope-field" style="display:none">
+          <label>적용 범위</label>
+          <div class="scope-pick" id="edit-scope-pick">
+            <button class="scope" data-escope="thisDay" onclick="pickEditScope(this)">이 날짜만</button>
+            <button class="scope" data-escope="all" onclick="pickEditScope(this)">전체</button>
+          </div>
+          <div class="scope-hint" id="edit-scope-hint"></div>
+        </div>
+        <div class="field">
+          <label>누구</label>
+          <div class="who-pick" id="who-pick">
+            <button class="person" data-person="dad"   onclick="pickFormWho(this)">아빠</button>
+            <button class="person" data-person="mom"   onclick="pickFormWho(this)">엄마</button>
+            <button class="person" data-person="child" onclick="pickFormWho(this)">딸</button>
+          </div>
+        </div>
+        <div class="field"><label>무엇을</label><input type="text" id="f-title" placeholder="예: 병원 예약, 미용실" /></div>
+        <div class="times">
+          <div class="field"><label>시작</label><input type="time" id="f-start" /></div>
+          <div class="field"><label>끝</label><input type="time" id="f-end" /></div>
+        </div>
+        <div class="field" id="scope-field">
+          <label>언제 적용할까요?</label>
+          <div class="scope-pick" id="scope-pick">
+            <button class="scope" data-scope="day"      onclick="pickScope(this)">이 날짜만</button>
+            <button class="scope" data-scope="weekFrom" onclick="pickScope(this)">이 주</button>
+            <button class="scope" data-scope="month"    onclick="pickScope(this)">이 달</button>
+            <button class="scope" data-scope="year"     onclick="pickScope(this)">올해</button>
+            <button class="scope" data-scope="dates"    onclick="pickScope(this)">직접 선택</button>
+            <button class="scope" data-scope="base"     onclick="pickScope(this)">매일</button>
+          </div>
+          <div class="scope-hint" id="scope-hint"></div>
+          <div class="minical" id="minical" style="display:none"></div>
+        </div>
+        <div class="sheet-btns">
+          <button class="btn btn-cancel" onclick="closeModal()">취소</button>
+          <button class="btn btn-del" id="btn-del" onclick="deleteItem()" style="display:none">삭제</button>
+          <button class="btn btn-save" onclick="saveForm()">저장</button>
+        </div>
+        <button class="btn-gcal" onclick="addToGoogleCalendar()">구글 캘린더에 추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase (두 폰 실시간 공유) SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+
+  <script>
+    /* ============================================================
+       ★★ 여기 두 곳만 채우면 두 폰이 실시간으로 같이 써져요 ★★
+       ------------------------------------------------------------
+       1) firebaseConfig : Firebase 홈페이지에서 복사한 값을 붙여넣기
+          (databaseURL 이 꼭 들어가 있어야 해요)
+       2) FAMILY_CODE   : 두 분만 아는 비밀 문자열. 두 폰에 똑같이!
+
+       아직 안 채웠으면? 앱은 이 폰 안에만 저장되며 잘 돌아가요.
+       채우면 그때부터 두 폰이 같은 데이터를 실시간으로 공유해요.
+    ============================================================ */
+    var firebaseConfig = {
+      apiKey:      "AIzaSyAgyiPvE-C_nuW66CU_MEQtEs-qM-F7XS4",
+      authDomain:  "yunha-faily.firebaseapp.com",
+      databaseURL: "https://yunha-faily-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId:   "yunha-faily",
+      appId:       "1:187951303281:web:13fc335c0a9f85f21de9d0"
+    };
+    var FAMILY_CODE = "yunha-family-0630";   // 두 폰에 똑같이 (같은 파일 올리면 자동으로 같음)
+
+    /* ===== 기본(매일) 일정 ===== */
+    var schedule = [
+      { who: 'child', start: '06:00', end: '07:30', title: '기상 · 놀이' },
+      { who: 'child', start: '07:30', end: '08:00', title: '아침 식사' },
+      { who: 'child', start: '08:00', end: '09:30', title: '놀이' },
+      { who: 'child', start: '09:30', end: '10:30', title: '낮잠 1' },
+      { who: 'child', start: '10:30', end: '11:00', title: '놀이' },
+      { who: 'child', start: '11:00', end: '11:30', title: '점심 식사' },
+      { who: 'child', start: '11:30', end: '13:30', title: '놀이' },
+      { who: 'child', start: '13:30', end: '14:00', title: '분유' },
+      { who: 'child', start: '14:00', end: '14:30', title: '놀이' },
+      { who: 'child', start: '14:30', end: '15:30', title: '낮잠 2' },
+      { who: 'child', start: '15:30', end: '17:30', title: '놀이' },
+      { who: 'child', start: '17:30', end: '18:00', title: '저녁 식사' },
+      { who: 'child', start: '18:00', end: '18:30', title: '목욕' },
+      { who: 'child', start: '18:30', end: '19:00', title: '놀이' },
+      { who: 'child', start: '19:00', end: '19:30', title: '분유 · 양치' },
+      { who: 'child', start: '19:30', end: '06:00', title: '취침' },
+      { who: 'dad', start: '05:00', end: '05:30', title: '양치 · 스트레칭' },
+      { who: 'dad', start: '05:30', end: '06:00', title: '아침 준비' },
+      { who: 'dad', start: '06:00', end: '09:30', title: '오전 육아' },
+      { who: 'dad', start: '09:30', end: '10:30', title: '식사 준비' },
+      { who: 'dad', start: '10:30', end: '11:00', title: '육아' },
+      { who: 'dad', start: '11:00', end: '11:30', title: '점심 식사' },
+      { who: 'dad', start: '11:30', end: '12:00', title: '점심 정리' },
+      { who: 'dad', start: '12:00', end: '13:30', title: '개인 정비' },
+      { who: 'dad', start: '13:30', end: '15:30', title: '운동' },
+      { who: 'dad', start: '15:30', end: '16:00', title: '샤워' },
+      { who: 'dad', start: '16:00', end: '17:00', title: '개인 정비' },
+      { who: 'dad', start: '17:00', end: '17:30', title: '저녁 준비' },
+      { who: 'dad', start: '17:30', end: '18:00', title: '저녁 식사' },
+      { who: 'dad', start: '18:00', end: '19:30', title: '저녁 육아' },
+      { who: 'dad', start: '19:30', end: '21:30', title: '개인 정비' },
+      { who: 'dad', start: '21:30', end: '05:00', title: '취침' },
+      { who: 'mom', start: '05:00', end: '05:30', title: '양치 · 스트레칭' },
+      { who: 'mom', start: '05:30', end: '06:30', title: '운동 (러닝·요가·수영)' },
+      { who: 'mom', start: '06:30', end: '07:00', title: '샤워' },
+      { who: 'mom', start: '07:00', end: '07:30', title: '개인 정비' },
+      { who: 'mom', start: '07:30', end: '08:00', title: '아침 식사' },
+      { who: 'mom', start: '08:00', end: '09:30', title: '개인 정비' },
+      { who: 'mom', start: '09:30', end: '10:30', title: '식사 준비' },
+      { who: 'mom', start: '10:30', end: '11:00', title: '육아' },
+      { who: 'mom', start: '11:00', end: '11:30', title: '점심 식사' },
+      { who: 'mom', start: '11:30', end: '12:00', title: '점심 정리' },
+      { who: 'mom', start: '12:00', end: '17:00', title: '오후 육아' },
+      { who: 'mom', start: '17:00', end: '17:30', title: '저녁 준비' },
+      { who: 'mom', start: '17:30', end: '18:00', title: '저녁 식사' },
+      { who: 'mom', start: '18:00', end: '19:30', title: '저녁 육아' },
+      { who: 'mom', start: '19:30', end: '21:30', title: '개인 정비' },
+      { who: 'mom', start: '21:30', end: '05:00', title: '취침' }
+    ];
+    var exceptions = [];   // 날짜별 예외 일정
+    var hides = [];        // (4-2b용) 특정 날 기본 일정 가리기
+
+    var people = {
+      all: { name: '전체', color: '#6B8E5A' }, dad: { name: '아빠', color: '#3B7DBF' },
+      mom: { name: '엄마', color: '#E08A4E' }, child: { name: '딸', color: '#34A79A' }
+    };
+
+    /* ===== 날짜 도우미 ===== */
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+    function ymdOf(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }   // m: 0=1월
+    function parseYmd(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+    function mondayOf(d) { var x = new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+    function sundayOf(d) { var m = mondayOf(d); m.setDate(m.getDate() + 6); return m; }
+    function weekDatesOf(d) { var m = mondayOf(d), a = []; for (var i = 0; i < 7; i++) { var t = new Date(m); t.setDate(m.getDate() + i); a.push(ymd(t)); } return a; }
+
+    var todayStr = ymd(new Date());
+    var weekDates = weekDatesOf(new Date());   // 이번 주 월~일 7개 날짜
+
+    /* ===== 예외가 어떤 날에 적용되는지 ===== */
+    function appliesOn(ev, D) {
+      if (ev.excl && ev.excl.indexOf(D) >= 0) return false;   // '이 날짜만' 제외된 날
+      switch (ev.scope) {
+        case 'day':      return ev.date === D;
+        case 'dates':    return ev.dates.indexOf(D) >= 0;
+        case 'month':    return D.slice(0, 7) === ev.ym;
+        case 'year':     return D.slice(0, 4) === String(ev.y);
+        case 'weekFrom': return D >= ev.date && D <= ev.weekEnd;
+        default:         return false;
+      }
+    }
+    function hiddenOn(id, D) { return hides.some(function (h) { return h.baseId === id && h.date === D; }); }
+
+    /* ★ 그 날짜의 일정 = 기본(안 가려진 것) + 그 날짜에 맞는 예외 */
+    function itemsForDate(D) {
+      var out = schedule.filter(function (b) { return !hiddenOn(b.id, D); });
+      exceptions.forEach(function (ev) { if (appliesOn(ev, D)) out.push(ev); });
+      return out;
+    }
+
+    /* ===== 활동 종류 → 색 ===== */
+    var catColor = { '수면': '#B4B2A9', '낮잠': '#AEBEE0', '육아': '#6FA85C', '운동': '#E0A24E', '식사': '#E8896B', '놀이': '#4FB0A0', '개인': '#B49BD8', '준비': '#C7C2B6', '기타': '#D3D1C7' };
+    function categorize(t) {
+      if (t.indexOf('취침') >= 0) return '수면';
+      if (t.indexOf('낮잠') >= 0) return '낮잠';
+      if (t.indexOf('육아') >= 0) return '육아';
+      if (t.indexOf('운동') >= 0) return '운동';
+      if (t.indexOf('준비') >= 0 || t.indexOf('정리') >= 0) return '준비';
+      if (t.indexOf('식사') >= 0 || t.indexOf('분유') >= 0) return '식사';
+      if (t.indexOf('놀이') >= 0) return '놀이';
+      if (t.indexOf('개인') >= 0 || t.indexOf('샤워') >= 0 || t.indexOf('목욕') >= 0 || t.indexOf('양치') >= 0 || t.indexOf('스트레칭') >= 0) return '개인';
+      return '기타';
+    }
+    function toMin(h) { var p = h.split(':'); return Number(p[0]) * 60 + Number(p[1]); }
+
+    /* ===== 색 조각 만들기 (그 날짜 일정 목록 items 를 받아서) ===== */
+    function personSegments(items, who) {
+      return items.filter(function (r) { return r.who === who; }).map(function (r) {
+        var c = categorize(r.title); return { s: toMin(r.start), e: toMin(r.end), color: catColor[c], cat: c };
+      });
+    }
+    var leadColors = { dad: '#3B7DBF', mom: '#E08A4E', both: '#6B8E5A', free: '#DAD8CF' };
+    function careAt(items, who, m) {
+      return items.some(function (r) { return r.who === who && categorize(r.title) === '육아' && toMin(r.start) <= m && m < toMin(r.end); });
+    }
+    function allTimeline(items) {
+      var segs = [], prev = null;
+      for (var m = 0; m < 1440; m += 30) {
+        var d = careAt(items, 'dad', m), mo = careAt(items, 'mom', m);
+        var color = d && mo ? leadColors.both : d ? leadColors.dad : mo ? leadColors.mom : leadColors.free;
+        if (prev && prev.color === color) prev.e = m + 30; else { prev = { s: m, e: m + 30, color: color }; segs.push(prev); }
+      }
+      return segs;
+    }
+    function segmentsFor(items, who) { return who === 'all' ? allTimeline(items) : personSegments(items, who); }
+
+    function legendEntries(who, segs) {
+      if (who === 'all') return [['아빠 육아', leadColors.dad], ['엄마 육아', leadColors.mom], ['함께 육아', leadColors.both], ['자유·개인', leadColors.free]];
+      var seen = {}; segs.forEach(function (s) { seen[s.cat] = catColor[s.cat]; });
+      return Object.keys(seen).map(function (k) { return [k, seen[k]]; });
+    }
+    function legendHTML(entries) { return entries.map(function (e) { return '<span class="lg"><span class="dot" style="background:' + e[1] + '"></span>' + e[0] + '</span>'; }).join(''); }
+
+    /* ===== 원형 시계 ===== */
+    var CX = 150, CY = 150;
+    function pointOnCircle(r, deg) { var a = deg * Math.PI / 180; return [CX + r * Math.sin(a), CY - r * Math.cos(a)]; }
+    function donutPath(rIn, rOut, s, e) {
+      if (e <= s) e += 1440;
+      var a1 = s / 1440 * 360, a2 = e / 1440 * 360, large = (a2 - a1) > 180 ? 1 : 0;
+      var o1 = pointOnCircle(rOut, a1), o2 = pointOnCircle(rOut, a2), i2 = pointOnCircle(rIn, a2), i1 = pointOnCircle(rIn, a1);
+      return 'M' + o1[0].toFixed(1) + ' ' + o1[1].toFixed(1) + ' A' + rOut + ' ' + rOut + ' 0 ' + large + ' 1 ' + o2[0].toFixed(1) + ' ' + o2[1].toFixed(1) +
+             ' L' + i2[0].toFixed(1) + ' ' + i2[1].toFixed(1) + ' A' + rIn + ' ' + rIn + ' 0 ' + large + ' 0 ' + i1[0].toFixed(1) + ' ' + i1[1].toFixed(1) + ' Z';
+    }
+    function clockLabel(r, deg, text) { var p = pointOnCircle(r, deg); return '<text x="' + p[0].toFixed(1) + '" y="' + (p[1] + 4).toFixed(1) + '" text-anchor="middle" font-size="11" fill="#8C8B82">' + text + '</text>'; }
+    function buildClockSVG(items, who) {
+      var segs = segmentsFor(items, who);
+      var arcs = segs.map(function (seg) { return '<path d="' + donutPath(78, 122, seg.s, seg.e) + '" fill="' + seg.color + '" stroke="#FFFFFF" stroke-width="1"/>'; }).join('');
+      var marks = '<circle cx="150" cy="150" r="122" fill="none" stroke="var(--line)" stroke-width="0.5"/><circle cx="150" cy="150" r="78" fill="none" stroke="var(--line)" stroke-width="0.5"/>' +
+                  clockLabel(138, 0, '밤 12') + clockLabel(138, 90, '6시') + clockLabel(138, 180, '낮 12') + clockLabel(138, 270, '18시');
+      var center = '<text x="150" y="146" text-anchor="middle" font-size="15" font-weight="600" fill="#2C2C2A">' + people[who].name + '</text>' +
+                   '<text x="150" y="164" text-anchor="middle" font-size="11" fill="#8C8B82">' + (who === 'all' ? '육아 당번' : '하루') + '</text>';
+      return '<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">' + arcs + marks + center + '</svg>';
+    }
+
+    /* ===== 목록 한 줄 (누르면 수정창) — 예외면 배지 표시 ===== */
+    function itemHTML(row, showWho, dateStr) {
+      var color = people[row.who].color;
+      var badge = row.scope ? '<span class="badge">예외</span>' : '';
+      var whoTag = showWho ? '<span class="who" style="color:' + color + '">' + people[row.who].name + '</span>' : '';
+      return '<div class="item" style="border-left-color:' + color + '" onclick="openEdit(' + row.id + ',\'' + dateStr + '\')">' +
+               '<span class="time">' + row.start + ' – ' + row.end + '</span>' +
+               '<span class="ititle">' + row.title + ' ' + badge + '</span>' + whoTag + '</div>';
+    }
+    function listHTML(items, who, dateStr) {
+      var rows = items.filter(function (r) { return who === 'all' || r.who === who; })
+                      .sort(function (a, b) { return toMin(a.start) - toMin(b.start); });
+      if (!rows.length) return '<div class="empty">일정이 없어요. + 로 추가해보세요.</div>';
+      return rows.map(function (r) { return itemHTML(r, who === 'all', dateStr); }).join('');
+    }
+
+    /* ===== 데일리 (오늘) ===== */
+    var currentPerson = 'all';
+    function renderDaily() {
+      var items = itemsForDate(todayStr);
+      document.getElementById('daily-clock').innerHTML = buildClockSVG(items, currentPerson);
+      document.getElementById('daily-legend').innerHTML = legendHTML(legendEntries(currentPerson, segmentsFor(items, currentPerson)));
+      document.getElementById('daily-list').innerHTML = listHTML(items, currentPerson, todayStr);
+    }
+    function pickPerson(btn) {
+      document.querySelectorAll('#people .person').forEach(function (p) { p.classList.remove('active'); p.style.background = ''; });
+      btn.classList.add('active'); currentPerson = btn.dataset.person; btn.style.background = people[currentPerson].color;
+      renderDaily();
+    }
+
+    /* ===== 주간 (이번 주) ===== */
+    var weekPerson = 'all';
+    function drawWeek() {
+      var who = weekPerson;
+      var top = 24, H = 344, x0 = 32, colW = 304 / 7;
+      function y(m) { return top + m / 1440 * H; }
+      var dows = ['월', '화', '수', '목', '금', '토', '일'];
+      var todayCol = (new Date().getDay() + 6) % 7;
+      var svg = '';
+      [6, 9, 12, 15, 18, 21].forEach(function (h) {
+        var yy = y(h * 60);
+        svg += '<line x1="32" y1="' + yy.toFixed(1) + '" x2="336" y2="' + yy.toFixed(1) + '" stroke="var(--line)" stroke-width="0.5"/>';
+        svg += '<text x="28" y="' + (yy + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="#8C8B82">' + h + '</text>';
+      });
+      for (var d = 0; d < 7; d++) {
+        var cx = x0 + d * colW;
+        var col = d === 6 ? '#C4553B' : d === 5 ? '#3B6FBF' : '#2C2C2A';
+        svg += '<text x="' + (cx + colW / 2).toFixed(1) + '" y="16" text-anchor="middle" font-size="11" fill="' + col + '">' + dows[d] + '</text>';
+        // 각 요일은 '그 날짜'의 일정으로 그림 (예외 넣으면 그 칸만 달라짐)
+        var items = itemsForDate(weekDates[d]);
+        var segs = segmentsFor(items, who);
+        var parts = [];
+        segs.forEach(function (g) { if (g.e <= g.s) { parts.push({ s: g.s, e: 1440, color: g.color }); parts.push({ s: 0, e: g.e, color: g.color }); } else parts.push({ s: g.s, e: g.e, color: g.color }); });
+        parts.forEach(function (p) {
+          svg += '<rect x="' + (cx + 1).toFixed(1) + '" y="' + y(p.s).toFixed(1) + '" width="' + (colW - 2).toFixed(1) + '" height="' + (y(p.e) - y(p.s)).toFixed(1) + '" fill="' + p.color + '"/>';
+        });
+      }
+      svg += '<rect x="' + (x0 + todayCol * colW).toFixed(1) + '" y="' + top + '" width="' + colW.toFixed(1) + '" height="' + H + '" fill="none" stroke="var(--accent)" stroke-width="1.6" rx="4"/>';
+      document.getElementById('week-chart').innerHTML = '<svg viewBox="0 0 340 380" xmlns="http://www.w3.org/2000/svg">' + svg + '</svg>';
+      var repItems = itemsForDate(weekDates[0]);
+      document.getElementById('week-legend').innerHTML = legendHTML(legendEntries(who, segmentsFor(repItems, who)));
+    }
+    function pickWeekPerson(btn) {
+      document.querySelectorAll('#week-people .person').forEach(function (p) { p.classList.remove('active'); p.style.background = ''; });
+      btn.classList.add('active'); weekPerson = btn.dataset.person; btn.style.background = people[weekPerson].color;
+      drawWeek();
+    }
+
+    /* ===== 월간 (달력) ===== */
+    var monthState = { y: 0, m: 0 };
+    var selectedDate = null;
+    var monthDetailPerson = 'all';
+    function hasException(D) { return exceptions.some(function (ev) { return appliesOn(ev, D); }) || hides.some(function (h) { return h.date === D; }); }
+    function renderMonth() {
+      var y = monthState.y, m = monthState.m;
+      var first = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+      var today = new Date(), isThisMonth = (y === today.getFullYear() && m === today.getMonth());
+      document.getElementById('cal-title').textContent = y + '년 ' + (m + 1) + '월';
+      var dows = ['일', '월', '화', '수', '목', '금', '토'];
+      var html = dows.map(function (d, i) { return '<div class="cal-dow' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '') + '">' + d + '</div>'; }).join('');
+      for (var b = 0; b < first; b++) html += '<div class="cal-cell blank"></div>';
+      for (var d = 1; d <= dim; d++) {
+        var cls = 'cal-cell';
+        if (isThisMonth && d === today.getDate()) cls += ' today';
+        if (selectedDate === d) cls += ' selected';
+        var mark = hasException(ymdOf(y, m, d)) ? '<span class="mark"></span>' : '';
+        html += '<div class="' + cls + '" onclick="selectDay(' + d + ')">' + d + mark + '</div>';
+      }
+      document.getElementById('cal-grid').innerHTML = html;
+    }
+    function selectDay(d) { selectedDate = d; renderMonth(); renderDayDetail(d); }
+    function renderDayDetail(d) {
+      var y = monthState.y, m = monthState.m, who = monthDetailPerson;
+      var full = ymdOf(y, m, d);
+      var dow = ['일', '월', '화', '수', '목', '금', '토'][new Date(y, m, d).getDay()];
+      var items = itemsForDate(full);
+      var picker = ['all', 'dad', 'mom', 'child'].map(function (k) {
+        var on = (k === who), style = on ? ' style="background:' + people[k].color + '"' : '';
+        return '<button class="person' + (on ? ' active' : '') + '" data-person="' + k + '" onclick="pickDetailPerson(this)"' + style + '>' + people[k].name + '</button>';
+      }).join('');
+      var clock = '<div class="clock-card"><div>' + buildClockSVG(items, who) + '</div><div class="legend">' + legendHTML(legendEntries(who, segmentsFor(items, who))) + '</div></div>';
+      document.getElementById('day-detail').innerHTML =
+        '<h3>' + (m + 1) + '월 ' + d + '일 (' + dow + ') 일정</h3>' +
+        '<div class="people" style="margin-top:12px">' + picker + '</div>' + clock +
+        '<div class="list">' + listHTML(items, who, full) + '</div>';
+    }
+    function pickDetailPerson(btn) { monthDetailPerson = btn.dataset.person; renderDayDetail(selectedDate); }
+    function changeMonth(delta) {
+      var d = new Date(monthState.y, monthState.m + delta, 1);
+      monthState = { y: d.getFullYear(), m: d.getMonth() };
+      selectedDate = null; renderMonth(); document.getElementById('day-detail').innerHTML = '';
+    }
+
+    /* ============================================================
+       저장 · 불러오기 · 번호(id)
+    ============================================================ */
+    var STORAGE_KEY = 'family_schedule_v2';
+    var nextId = 1;
+    var dbRef = null, firebaseOn = false, applyingRemote = false;
+
+    // 저장 : 연결돼 있으면 공동 저장소로, 그리고 폰 안에도 백업
+    function saveAll() {
+      var data = { base: schedule, exceptions: exceptions, hides: hides };
+      if (firebaseOn && dbRef && !applyingRemote) { try { dbRef.set(data); } catch (e) {} }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+    }
+    // Firebase 실시간 연결 (설정이 채워져 있을 때만)
+    function initFirebase() {
+      try {
+        if (typeof firebase === 'undefined') return;                        // SDK 못 불러옴
+        if (String(firebaseConfig.databaseURL).indexOf('여기에') >= 0) return;   // 아직 설정 안 함
+        firebase.initializeApp(firebaseConfig);
+        dbRef = firebase.database().ref('schedules/' + FAMILY_CODE);
+        firebaseOn = true;
+        // 다른 폰(또는 내)에서 바뀌면 실시간으로 받아 화면 갱신
+        dbRef.on('value', function (snap) {
+          var data = snap.val();
+          if (!data) { saveAll(); return; }        // 저장소가 비었으면 지금 내 데이터로 채움
+          applyingRemote = true;
+          schedule = data.base || [];
+          exceptions = data.exceptions || [];
+          hides = data.hides || [];
+          assignIds(); refreshAll();
+          applyingRemote = false;
+        });
+      } catch (e) { firebaseOn = false; }
+    }
+    function loadAll() {
+      try {
+        var s = localStorage.getItem(STORAGE_KEY);
+        if (s) { var o = JSON.parse(s);
+          if (o && o.base) { schedule = o.base; exceptions = o.exceptions || []; hides = o.hides || []; } }
+      } catch (e) {}
+    }
+    function assignIds() {
+      schedule.concat(exceptions).forEach(function (r) {
+        if (typeof r.id !== 'number') r.id = nextId++; else if (r.id >= nextId) nextId = r.id + 1;
+      });
+    }
+    function refreshAll() { renderDaily(); drawWeek(); if (selectedDate) renderDayDetail(selectedDate); renderMonth(); }
+
+    /* ============================================================
+       입력창(모달)
+    ============================================================ */
+    var editingItem = null;    // 수정 중인 일정 (새로 추가면 null)
+    var editScope = 'all';     // 수정·삭제 범위 : 'thisDay'(이 날짜만) | 'all'(전체)
+    var editContextDate = todayStr;   // 지금 보고 있는 날짜
+    var formWho = 'dad';
+    var formScope = 'day';
+    var formAnchor = todayStr; // 범위의 기준 날짜
+    var pickedDates = [];      // '직접 선택'으로 고른 날짜들
+    var miniState = { y: 0, m: 0 };
+
+    function pickFormWho(btn) {
+      document.querySelectorAll('#who-pick .person').forEach(function (p) { p.classList.remove('active'); p.style.background = ''; });
+      btn.classList.add('active'); formWho = btn.dataset.person; btn.style.background = people[formWho].color;
+    }
+    function setFormWho(who) { pickFormWho(document.querySelector('#who-pick .person[data-person="' + who + '"]')); }
+
+    function pickScope(btn) {
+      document.querySelectorAll('#scope-pick .scope').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active'); formScope = btn.dataset.scope;
+      var showCal = (formScope === 'dates');
+      document.getElementById('minical').style.display = showCal ? '' : 'none';
+      if (showCal) { var a = parseYmd(formAnchor); miniState = { y: a.getFullYear(), m: a.getMonth() }; renderMiniCal(); }
+      updateScopeHint();
+    }
+    function updateScopeHint() {
+      var a = parseYmd(formAnchor), mo = a.getMonth() + 1, dy = a.getDate(), yr = a.getFullYear();
+      var sun = sundayOf(a), t;
+      if (formScope === 'day') t = mo + '월 ' + dy + '일 하루만 적용돼요.';
+      else if (formScope === 'weekFrom') t = mo + '월 ' + dy + '일부터 ' + (sun.getMonth() + 1) + '월 ' + sun.getDate() + '일(일요일)까지 적용돼요.';
+      else if (formScope === 'month') t = yr + '년 ' + mo + '월 한 달 전체에 적용돼요.';
+      else if (formScope === 'year') t = yr + '년 한 해 전체에 적용돼요.';
+      else if (formScope === 'dates') t = '달력에서 날짜를 직접 고르세요. (' + pickedDates.length + '일 선택됨)';
+      else t = '매일(기본 일정)에 넣어요.';
+      document.getElementById('scope-hint').textContent = t;
+    }
+    function renderMiniCal() {
+      var y = miniState.y, m = miniState.m;
+      var first = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+      var dows = ['일', '월', '화', '수', '목', '금', '토'];
+      var full = monthAllDates(y, m).every(function (x) { return pickedDates.indexOf(x) >= 0; });
+      var html = '<div class="mc-head"><button class="mc-nav" onclick="miniMonth(-1)">‹</button>' +
+                 '<div class="mc-title">' + y + '년 ' + (m + 1) + '월</div>' +
+                 '<button class="mc-nav" onclick="miniMonth(1)">›</button></div>' +
+                 '<button class="mc-allbtn" onclick="selectWholeMonth()">' + (full ? '이 달 전체 해제' : '이 달 전체 선택') + '</button>' +
+                 '<div class="mc-grid">';
+      html += dows.map(function (d) { return '<div class="mc-dow">' + d + '</div>'; }).join('');
+      for (var b = 0; b < first; b++) html += '<div class="mc-cell blank"></div>';
+      for (var d = 1; d <= dim; d++) {
+        var full = ymdOf(y, m, d);
+        var sel = pickedDates.indexOf(full) >= 0 ? ' sel' : '';
+        html += '<div class="mc-cell' + sel + '" onclick="toggleDate(\'' + full + '\')">' + d + '</div>';
+      }
+      document.getElementById('minical').innerHTML = html + '</div>';
+    }
+    function miniMonth(delta) { var d = new Date(miniState.y, miniState.m + delta, 1); miniState = { y: d.getFullYear(), m: d.getMonth() }; renderMiniCal(); }
+    function toggleDate(full) {
+      var i = pickedDates.indexOf(full);
+      if (i >= 0) pickedDates.splice(i, 1); else pickedDates.push(full);
+      renderMiniCal(); updateScopeHint();
+    }
+    // 한 달의 모든 날짜 목록
+    function monthAllDates(y, m) { var dim = new Date(y, m + 1, 0).getDate(), a = []; for (var d = 1; d <= dim; d++) a.push(ymdOf(y, m, d)); return a; }
+    // 지금 보는 달을 통째로 선택 / 이미 다 선택돼 있으면 통째로 해제
+    function selectWholeMonth() {
+      var all = monthAllDates(miniState.y, miniState.m);
+      if (all.every(function (x) { return pickedDates.indexOf(x) >= 0; })) {
+        pickedDates = pickedDates.filter(function (x) { return all.indexOf(x) < 0; });
+      } else {
+        all.forEach(function (x) { if (pickedDates.indexOf(x) < 0) pickedDates.push(x); });
+      }
+      renderMiniCal(); updateScopeHint();
+    }
+
+    function openAdd() {
+      editingItem = null;
+      formAnchor = (currentTab === 'month' && selectedDate) ? ymdOf(monthState.y, monthState.m, selectedDate) : todayStr;
+      pickedDates = [];
+      document.getElementById('sheet-title').textContent = '새 일정';
+      document.getElementById('btn-del').style.display = 'none';
+      document.getElementById('edit-note').style.display = 'none';
+      document.getElementById('scope-field').style.display = '';
+      document.getElementById('form-msg').textContent = '';
+      setFormWho('dad');
+      document.getElementById('f-title').value = '';
+      document.getElementById('f-start').value = '09:00';
+      document.getElementById('f-end').value = '10:00';
+      pickScope(document.querySelector('#scope-pick .scope[data-scope="day"]'));
+      document.getElementById('modal').classList.add('open');
+    }
+    function isBaseItem(row) { return schedule.indexOf(row) >= 0; }
+    function pickEditScope(btn) {
+      document.querySelectorAll('#edit-scope-pick .scope').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active'); editScope = btn.dataset.escope;
+      var d = parseYmd(editContextDate);
+      document.getElementById('edit-scope-hint').textContent =
+        editScope === 'thisDay'
+          ? (d.getMonth() + 1) + '월 ' + d.getDate() + '일만 바뀌고, 다른 날은 그대로예요.'
+          : (isBaseItem(editingItem) ? '매일(모든 날)이 바뀌어요.' : '이 예외가 적용된 모든 날이 바뀌어요.');
+    }
+    function openEdit(id, dateStr) {
+      var row = schedule.concat(exceptions).filter(function (r) { return r.id === id; })[0];
+      if (!row) return;
+      editingItem = row; editContextDate = dateStr;
+      document.getElementById('sheet-title').textContent = '일정 수정';
+      document.getElementById('btn-del').style.display = '';
+      document.getElementById('form-msg').textContent = '';
+      document.getElementById('scope-field').style.display = 'none';   // 추가용 범위는 숨김
+      document.getElementById('edit-note').style.display = 'none';
+
+      var esField = document.getElementById('edit-scope-field');
+      if (row.scope === 'day') {                 // 하루짜리 예외는 범위 물어볼 필요 없음
+        esField.style.display = 'none'; editScope = 'all';
+      } else {                                   // 기본 일정 또는 여러 날 예외
+        esField.style.display = '';
+        document.querySelector('#edit-scope-pick .scope[data-escope="all"]').textContent = isBaseItem(row) ? '매일 전체' : '이 예외 전체';
+        pickEditScope(document.querySelector('#edit-scope-pick .scope[data-escope="thisDay"]'));  // 기본값: 이 날짜만
+      }
+      setFormWho(row.who);
+      document.getElementById('f-title').value = row.title;
+      document.getElementById('f-start').value = row.start;
+      document.getElementById('f-end').value = row.end;
+      document.getElementById('modal').classList.add('open');
+    }
+    // 예외에서 특정 날짜 D 만 떼어내기
+    function detachDate(ev, D) {
+      if (ev.scope === 'dates') {
+        ev.dates = ev.dates.filter(function (x) { return x !== D; });
+        if (!ev.dates.length) exceptions = exceptions.filter(function (r) { return r.id !== ev.id; });
+      } else { ev.excl = ev.excl || []; if (ev.excl.indexOf(D) < 0) ev.excl.push(D); }
+    }
+    // 수정 적용
+    function applyEdit(row, who, start, end, title) {
+      if (editScope === 'all') { row.who = who; row.start = start; row.end = end; row.title = title; return; }
+      var D = editContextDate;                   // 이 날짜만
+      if (isBaseItem(row)) hides.push({ baseId: row.id, date: D });   // 기본은 그날만 가리고
+      else detachDate(row, D);                                        // 예외는 그날만 떼고
+      exceptions.push({ id: nextId++, who: who, start: start, end: end, title: title, scope: 'day', date: D });  // 그날용 새 예외
+    }
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+    function saveForm() {
+      var title = document.getElementById('f-title').value.trim();
+      var start = document.getElementById('f-start').value, end = document.getElementById('f-end').value;
+      var msg = document.getElementById('form-msg');
+      if (!title) { msg.textContent = '무엇을 하는지 적어주세요.'; return; }
+      if (!start || !end) { msg.textContent = '시작과 끝 시간을 정해주세요.'; return; }
+      if (start === end) { msg.textContent = '시작과 끝 시간이 같아요.'; return; }
+
+      if (editingItem) {                       // 수정
+        applyEdit(editingItem, formWho, start, end, title);
+      } else if (formScope === 'base') {        // 매일 → 기본 일정에 추가
+        schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title });
+      } else {                                  // 예외로 추가
+        var ev = { id: nextId++, who: formWho, start: start, end: end, title: title, scope: formScope };
+        if (formScope === 'day') ev.date = formAnchor;
+        else if (formScope === 'weekFrom') { ev.date = formAnchor; ev.weekEnd = ymd(sundayOf(parseYmd(formAnchor))); }
+        else if (formScope === 'month') ev.ym = formAnchor.slice(0, 7);
+        else if (formScope === 'year') ev.y = Number(formAnchor.slice(0, 4));
+        else if (formScope === 'dates') { if (!pickedDates.length) { msg.textContent = '적용할 날짜를 하나 이상 고르세요.'; return; } ev.dates = pickedDates.slice(); }
+        exceptions.push(ev);
+      }
+      saveAll(); refreshAll(); closeModal();
+    }
+    function deleteItem() {
+      if (!editingItem) return;
+      var row = editingItem, D = editContextDate;
+      if (editScope === 'thisDay') {            // 이 날짜만 삭제
+        if (isBaseItem(row)) hides.push({ baseId: row.id, date: D });   // 그날만 가리기
+        else detachDate(row, D);                                        // 그날만 떼기
+      } else {                                  // 전체 삭제
+        var id = row.id;
+        schedule = schedule.filter(function (r) { return r.id !== id; });
+        exceptions = exceptions.filter(function (r) { return r.id !== id; });
+      }
+      saveAll(); refreshAll(); closeModal();
+    }
+
+    /* 구글 캘린더에 이 일정을 보내기 (제목·날짜·시간이 채워진 채로 열려요) */
+    function gcalStamp(dateStr, timeStr) { return dateStr.replace(/-/g, '') + 'T' + timeStr.replace(':', '') + '00'; }
+    function addToGoogleCalendar() {
+      var title = document.getElementById('f-title').value.trim();
+      var start = document.getElementById('f-start').value, end = document.getElementById('f-end').value;
+      var msg = document.getElementById('form-msg');
+      if (!title || !start || !end) { msg.textContent = '제목과 시간을 먼저 채워주세요.'; return; }
+      var D = editingItem ? editContextDate : formAnchor;   // 어느 날짜의 일정인지
+      var endDate = D;
+      if (toMin(end) <= toMin(start)) { var d = parseYmd(D); d.setDate(d.getDate() + 1); endDate = ymd(d); }  // 자정 넘김
+      var dates = gcalStamp(D, start) + '/' + gcalStamp(endDate, end);
+      var url = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+                '&text=' + encodeURIComponent(title) + '&dates=' + dates + '&ctz=Asia/Seoul';
+      window.open(url, '_blank');
+    }
+
+    /* ===== 공통 : 탭 / 날짜 ===== */
+    var currentTab = 'daily';
+    function switchTab(name) {
+      currentTab = name;
+      document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+      document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+      var id = (name === 'daily') ? 'screen-daily' : (name === 'week') ? 'screen-week' : 'screen-month';
+      document.getElementById(id).classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+    function showToday() {
+      var now = new Date(), days = ['일', '월', '화', '수', '목', '금', '토'];
+      var txt = (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + days[now.getDay()] + '요일';
+      document.getElementById('today').textContent = txt;
+      document.getElementById('daily-title').textContent = '데일리 · ' + txt;
+    }
+
+    /* ===== 앱 시작 ===== */
+    loadAll(); assignIds(); showToday();
+    pickPerson(document.querySelector('#people .person.active'));
+    pickWeekPerson(document.querySelector('#week-people .person.active'));
+    var t = new Date();
+    monthState = { y: t.getFullYear(), m: t.getMonth() };
+    renderMonth(); selectDay(t.getDate());
+    initFirebase();   // 설정돼 있으면 실시간 공유 시작
+  </script>
+</body>
+</html>
