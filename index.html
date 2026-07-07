@@ -93,6 +93,23 @@
     .fab { position: absolute; right: 16px; bottom: calc(66px + env(safe-area-inset-bottom)); width: 54px; height: 54px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 28px; line-height: 1; box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer; z-index: 30; }
 
     .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: flex-end; justify-content: center; z-index: 40; }
+    .head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .hist-btn { background: var(--card); border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .who-ask { font-size: 13px; color: var(--ink); margin-bottom: 14px; }
+    .who-sub { font-size: 11px; color: var(--muted); }
+    .who-btns { display: flex; gap: 8px; margin-top: 8px; }
+    .who-b { flex: 1; border: 1.5px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 0; font-size: 14px; cursor: pointer; font-family: inherit; color: var(--ink); }
+    .who-b.on { background: var(--accent); color: #fff; border-color: transparent; }
+    .hist-list { max-height: 52vh; overflow-y: auto; margin-bottom: 8px; }
+    .hist-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0; }
+    .hist-item { border-bottom: 1px solid var(--line); padding: 10px 2px; }
+    .hist-top { display: flex; justify-content: space-between; margin-bottom: 3px; }
+    .hist-who { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .hist-time { font-size: 12px; color: var(--muted); }
+    .hist-body { font-size: 14px; color: var(--ink); }
+    .hist-act { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: #fff; margin-right: 4px; }
+    .hist-act.add { background: #6B8E5A; } .hist-act.edit { background: #3B7DBF; } .hist-act.del { background: #C0392B; }
+    .hist-when { font-size: 12px; color: var(--muted); }
     .modal.open { display: flex; }
     .sheet { background: var(--card); width: 100%; max-width: 480px; border-radius: 18px 18px 0 0; padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); max-height: 90vh; overflow-y: auto; }
     .sheet h3 { font-size: 17px; font-weight: 600; margin-bottom: 14px; }
@@ -153,9 +170,24 @@
 <body>
   <div class="app">
     <header class="header">
-      <h1>우리 가족 스케줄</h1>
+      <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
     </header>
+
+    <!-- 최근 수정 내역 -->
+    <div class="modal" id="hist-modal">
+      <div class="sheet">
+        <div class="sheet-title">최근 수정 내역</div>
+        <div class="who-ask">이 폰은 누구세요? <span class="who-sub">(수정한 사람으로 기록돼요)</span>
+          <div class="who-btns">
+            <button class="who-b" data-w="dad" onclick="setDeviceWho('dad')">아빠</button>
+            <button class="who-b" data-w="mom" onclick="setDeviceWho('mom')">엄마</button>
+          </div>
+        </div>
+        <div class="hist-list" id="hist-list"></div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeHistory()">닫기</button></div>
+      </div>
+    </div>
 
     <main class="content">
       <section class="screen active" id="screen-daily">
@@ -337,6 +369,13 @@
     ];
     var exceptions = [];   // 날짜별 예외 일정
     var hides = [];        // (4-2b용) 특정 날 기본 일정 가리기
+    var history = [];      // 최근 수정 내역 (두 폰 공유)
+    var deviceWho = '';    // 이 폰이 누구인지 (아빠/엄마) — 이 폰에만 저장
+    try { deviceWho = localStorage.getItem('family_device_who') || ''; } catch (e) {}
+    function logChange(act, title, whenDesc) {
+      history.unshift({ t: Date.now(), who: deviceWho, act: act, title: title, when: whenDesc || '' });
+      if (history.length > 30) history.length = 30;   // 최근 30건만 보관
+    }
 
     var people = {
       all: { name: '전체', color: '#6B8E5A' }, dad: { name: '아빠', color: '#3B7DBF' },
@@ -637,7 +676,7 @@
 
     // 저장 : 연결돼 있으면 공동 저장소로, 그리고 폰 안에도 백업
     function saveAll() {
-      var data = { base: schedule, exceptions: exceptions, hides: hides, categories: categories };
+      var data = { base: schedule, exceptions: exceptions, hides: hides, categories: categories, history: history };
       if (firebaseOn && dbRef && !applyingRemote) { try { dbRef.set(data); } catch (e) {} }
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
     }
@@ -658,6 +697,7 @@
           exceptions = data.exceptions || [];
           hides = data.hides || [];
           if (data.categories && data.categories.length) { categories = data.categories; normalizeCats(); rebuildCatColors(); buildCatButtons(); }
+          history = data.history || [];
           assignIds(); refreshAll();
           applyingRemote = false;
         });
@@ -668,7 +708,8 @@
         var s = localStorage.getItem(STORAGE_KEY);
         if (s) { var o = JSON.parse(s);
           if (o && o.base) { schedule = o.base; exceptions = o.exceptions || []; hides = o.hides || [];
-            if (o.categories && o.categories.length) { categories = o.categories; normalizeCats(); rebuildCatColors(); } } }
+            if (o.categories && o.categories.length) { categories = o.categories; normalizeCats(); rebuildCatColors(); }
+            history = o.history || []; } }
       } catch (e) {}
     }
     function assignIds() {
@@ -922,6 +963,31 @@
     }
     function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
+    /* ===== 최근 수정 내역 ===== */
+    function fmtHistTime(t) {
+      var d = new Date(t), now = new Date();
+      var hm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      var dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      var t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      var diff = Math.round((t0 - dd) / 86400000);
+      var day = diff === 0 ? '오늘' : diff === 1 ? '어제' : (d.getMonth() + 1) + '/' + d.getDate();
+      return day + ' ' + hm;
+    }
+    function renderHistory() {
+      document.querySelectorAll('#hist-modal .who-b').forEach(function (b) { b.classList.toggle('on', b.dataset.w === deviceWho); });
+      var el = document.getElementById('hist-list');
+      if (!history.length) { el.innerHTML = '<div class="hist-empty">아직 수정 내역이 없어요.</div>'; return; }
+      el.innerHTML = history.map(function (h) {
+        var who = h.who ? people[h.who].name : '알 수 없음';
+        var actCls = h.act === '삭제' ? 'del' : h.act === '추가' ? 'add' : 'edit';
+        return '<div class="hist-item"><div class="hist-top"><span class="hist-who">' + who + '</span><span class="hist-time">' + fmtHistTime(h.t) + '</span></div>' +
+               '<div class="hist-body"><span class="hist-act ' + actCls + '">' + h.act + '</span> ' + escapeHtml(h.title) + (h.when ? ' <span class="hist-when">(' + h.when + ')</span>' : '') + '</div></div>';
+      }).join('');
+    }
+    function openHistory() { renderHistory(); document.getElementById('hist-modal').classList.add('open'); }
+    function closeHistory() { document.getElementById('hist-modal').classList.remove('open'); }
+    function setDeviceWho(w) { deviceWho = w; try { localStorage.setItem('family_device_who', w); } catch (e) {} renderHistory(); }
+
     function saveForm() {
       var title = document.getElementById('f-title').value.trim();
       var start = document.getElementById('f-start').value, end = document.getElementById('f-end').value;
@@ -932,9 +998,12 @@
 
       // 같은 사람이 같은 시간에 겹치지 않도록 확인
       var checkDate = editingItem ? editContextDate : formAnchor;
-      var others = itemsForDate(checkDate).filter(function (r) {
-        return r.who === formWho && r.id !== (editingItem ? editingItem.id : -1);
-      });
+      var selfId = editingItem ? editingItem.id : -1;
+      var compare = itemsForDate(checkDate).slice();
+      if (formScope !== 'day') {   // 매일/이 주/이 달/올해/직접선택 → 평소 루틴(기본 일정)과도 검사
+        schedule.forEach(function (b) { if (!compare.some(function (x) { return x.id === b.id; })) compare.push(b); });
+      }
+      var others = compare.filter(function (r) { return r.who === formWho && r.id !== selfId; });
       var clash = null;
       for (var ci = 0; ci < others.length; ci++) {
         if (rangesOverlap(toMin(start), toMin(end), toMin(others[ci].start), toMin(others[ci].end))) { clash = others[ci]; break; }
@@ -944,6 +1013,7 @@
 
       var pin = document.getElementById('f-pin').checked;
       var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat };
+      var scopeLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', base: '매일' }[formScope] || '';
       if (editingItem) {                        // 수정 (6개 범위)
         applyEditScoped(editingItem, vals);
       } else if (formScope === 'base') {        // 매일 → 기본 일정에 추가
@@ -951,6 +1021,7 @@
       } else {                                  // 예외로 추가
         exceptions.push(newEx(vals, scopeFields(formScope, formAnchor, pickedDates)));
       }
+      logChange(editingItem ? '수정' : '추가', people[formWho].name + ' ' + title, scopeLabel);
       saveAll(); refreshAll(); closeModal();
     }
     function deleteItem() {
@@ -971,6 +1042,8 @@
         if (isBaseItem(row)) hides.push(mergeInto({ baseId: row.id }, scopeFields(S, D, pickedDates)));
         else exceptions = exceptions.filter(function (r) { return r.id !== row.id; });
       }
+      var delLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', base: '매일' }[S] || '';
+      logChange('삭제', people[row.who].name + ' ' + row.title, delLabel);
       saveAll(); refreshAll(); closeModal();
     }
 
