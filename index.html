@@ -97,11 +97,6 @@
     .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: flex-end; justify-content: center; z-index: 40; }
     .head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .hist-btn { background: var(--card); border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; white-space: nowrap; }
-    .who-ask { font-size: 13px; color: var(--ink); margin-bottom: 14px; }
-    .who-sub { font-size: 11px; color: var(--muted); }
-    .who-btns { display: flex; gap: 8px; margin-top: 8px; }
-    .who-b { flex: 1; border: 1.5px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 0; font-size: 14px; cursor: pointer; font-family: inherit; color: var(--ink); }
-    .who-b.on { background: var(--accent); color: #fff; border-color: transparent; }
     .hist-list { max-height: 52vh; overflow-y: auto; margin-bottom: 8px; }
     .hist-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0; }
     .hist-item { border-bottom: 1px solid var(--line); padding: 10px 2px; }
@@ -150,6 +145,9 @@
     .pin-row span { font-size: 14px; color: var(--ink); }
     .pin-row .sub { font-size: 12px; color: var(--muted); }
     .cat-note { font-size: 12px; color: var(--muted); font-weight: 400; }
+    .editor-pick { display: flex; gap: 8px; }
+    .editor-pick .edp { flex: 1; border: 1.5px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 0; font-size: 14px; cursor: pointer; font-family: inherit; color: var(--ink); }
+    .editor-pick .edp.on { background: var(--accent); color: #fff; border-color: transparent; }
     .cat-pick { display: flex; flex-wrap: wrap; gap: 7px; }
     .cat { border: 1.5px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 11px; font-size: 13px; color: var(--ink); cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
     .cat.active { font-weight: 600; border-color: transparent; }
@@ -181,12 +179,6 @@
     <div class="modal" id="hist-modal">
       <div class="sheet">
         <div class="sheet-title">최근 수정 내역</div>
-        <div class="who-ask">이 폰은 누구세요? <span class="who-sub">(수정한 사람으로 기록돼요)</span>
-          <div class="who-btns">
-            <button class="who-b" data-w="dad" onclick="setDeviceWho('dad')">아빠</button>
-            <button class="who-b" data-w="mom" onclick="setDeviceWho('mom')">엄마</button>
-          </div>
-        </div>
         <div class="hist-list" id="hist-list"></div>
         <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeHistory()">닫기</button></div>
       </div>
@@ -285,6 +277,13 @@
           <div class="minical" id="minical" style="display:none"></div>
         </div>
         <label class="pin-row"><input type="checkbox" id="f-pin" /><span>월간 달력에 표시 <span class="sub">(중요 일정)</span></span></label>
+        <div class="field"><label>수정한 사람 <span class="cat-note">(다음에도 기억돼요)</span></label>
+          <div class="editor-pick" id="editor-pick">
+            <button class="edp" data-w="dad" onclick="pickEditor('dad')">아빠</button>
+            <button class="edp" data-w="mom" onclick="pickEditor('mom')">엄마</button>
+            <button class="edp" data-w="" onclick="pickEditor('')">미지정</button>
+          </div>
+        </div>
         <div class="sheet-btns">
           <button class="btn btn-cancel" onclick="closeModal()">취소</button>
           <button class="btn btn-del" id="btn-del" onclick="deleteItem()" style="display:none">삭제</button>
@@ -375,8 +374,8 @@
     var history = [];      // 최근 수정 내역 (두 폰 공유)
     var deviceWho = '';    // 이 폰이 누구인지 (아빠/엄마) — 이 폰에만 저장
     try { deviceWho = localStorage.getItem('family_device_who') || ''; } catch (e) {}
-    function logChange(act, title, whenDesc) {
-      history.unshift({ t: Date.now(), who: deviceWho, act: act, title: title, when: whenDesc || '' });
+    function logChange(act, title, whenDesc, who) {
+      history.unshift({ t: Date.now(), who: who || '', act: act, title: title, when: whenDesc || '' });
       if (history.length > 30) history.length = 30;   // 최근 30건만 보관
     }
 
@@ -734,6 +733,12 @@
     var editContextDate = todayStr;   // 지금 보고 있는 날짜
     var formWho = 'dad';
     var formCat = '';          // 직접 고른 종류 ('' = 자동)
+    var formEditor = '';       // 이번 수정/추가를 한 사람 (아빠/엄마/'')
+    function pickEditor(w) {
+      formEditor = w;
+      document.querySelectorAll('#editor-pick .edp').forEach(function (b) { b.classList.toggle('on', b.dataset.w === w); });
+      if (w) { deviceWho = w; try { localStorage.setItem('family_device_who', w); } catch (e) {} }   // 실제 사람 고르면 다음 기본값으로 기억
+    }
     var formScope = 'day';
     var formAnchor = todayStr; // 범위의 기준 날짜
     var pickedDates = [];      // '직접 선택'으로 고른 날짜들
@@ -899,6 +904,7 @@
       document.getElementById('f-start').value = '09:00';
       document.getElementById('f-end').value = '10:00';
       document.getElementById('f-pin').checked = false;
+      pickEditor(deviceWho);
       setCat('');
       pickScope(document.querySelector('#scope-pick .scope[data-scope="day"]'));
       document.getElementById('modal').classList.add('open');
@@ -919,6 +925,7 @@
       document.getElementById('f-start').value = row.start;
       document.getElementById('f-end').value = row.end;
       document.getElementById('f-pin').checked = !!row.pin;
+      pickEditor(row.editor || deviceWho);
       setCat(row.cat || '');
       pickScope(document.querySelector('#scope-pick .scope[data-scope="day"]'));  // 기본: 이 날짜만
       document.getElementById('modal').classList.add('open');
@@ -982,7 +989,6 @@
       return day + ' ' + hm;
     }
     function renderHistory() {
-      document.querySelectorAll('#hist-modal .who-b').forEach(function (b) { b.classList.toggle('on', b.dataset.w === deviceWho); });
       var el = document.getElementById('hist-list');
       if (!history.length) { el.innerHTML = '<div class="hist-empty">아직 수정 내역이 없어요.</div>'; return; }
       el.innerHTML = history.map(function (h) {
@@ -995,7 +1001,6 @@
     }
     function openHistory() { document.getElementById('hist-modal').classList.add('open'); renderHistory(); }
     function closeHistory() { document.getElementById('hist-modal').classList.remove('open'); }
-    function setDeviceWho(w) { deviceWho = w; try { localStorage.setItem('family_device_who', w); } catch (e) {} renderHistory(); }
 
     function saveForm() {
       var title = document.getElementById('f-title').value.trim();
@@ -1021,16 +1026,16 @@
       if (formScope === 'dates' && !pickedDates.length) { msg.textContent = '적용할 날짜를 하나 이상 고르세요.'; return; }
 
       var pin = document.getElementById('f-pin').checked;
-      var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: deviceWho };
+      var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor };
       var scopeLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', base: '매일' }[formScope] || '';
       if (editingItem) {                        // 수정 (6개 범위)
         applyEditScoped(editingItem, vals);
       } else if (formScope === 'base') {        // 매일 → 기본 일정에 추가
-        schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: deviceWho });
+        schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor });
       } else {                                  // 예외로 추가
         exceptions.push(newEx(vals, scopeFields(formScope, formAnchor, pickedDates)));
       }
-      logChange(editingItem ? '수정' : '추가', people[formWho].name + ' ' + title, scopeLabel);
+      logChange(editingItem ? '수정' : '추가', people[formWho].name + ' ' + title, scopeLabel, formEditor);
       saveAll(); refreshAll(); closeModal();
     }
     function deleteItem() {
@@ -1052,7 +1057,7 @@
         else exceptions = exceptions.filter(function (r) { return r.id !== row.id; });
       }
       var delLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', base: '매일' }[S] || '';
-      logChange('삭제', people[row.who].name + ' ' + row.title, delLabel);
+      logChange('삭제', people[row.who].name + ' ' + row.title, delLabel, formEditor);
       saveAll(); refreshAll(); closeModal();
     }
 
