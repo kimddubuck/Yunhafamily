@@ -62,6 +62,8 @@
     .item.now { background: #FFF3E0; }
     .item.now .time { color: #B4691A; }
     .nowbadge { font-size: 11px; color: #fff; background: #C0392B; border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
+    .item .edby { font-size: 11px; color: var(--muted); margin-left: 4px; }
+    .item .edby.mine { color: var(--accent); font-weight: 600; }
     .hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 12px; }
     .empty { text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
 
@@ -105,6 +107,7 @@
     .hist-item { border-bottom: 1px solid var(--line); padding: 10px 2px; }
     .hist-top { display: flex; justify-content: space-between; margin-bottom: 3px; }
     .hist-who { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .hist-who.mine { color: var(--accent); }
     .hist-time { font-size: 12px; color: var(--muted); }
     .hist-body { font-size: 14px; color: var(--ink); }
     .hist-act { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: #fff; margin-right: 4px; }
@@ -525,7 +528,12 @@
     function itemHTML(row, showWho, dateStr) {
       var color = people[row.who].color;
       var isNow = (dateStr === todayStr) && withinNow(row);
-      var badge = row.scope ? '<span class="badge">수정</span>' : '';
+      var badge = '';
+      if (row.scope) {
+        var edName = row.editor ? people[row.editor].name : '미지정';
+        var mine = row.editor && row.editor === deviceWho;
+        badge = '<span class="badge">수정</span><span class="edby' + (mine ? ' mine' : '') + '">' + (mine ? '✓ ' : '') + edName + '</span>';
+      }
       var nowBadge = isNow ? '<span class="nowbadge">지금</span>' : '';
       var whoTag = showWho ? '<span class="who" style="color:' + color + '">' + people[row.who].name + '</span>' : '';
       return '<div class="item' + (isNow ? ' now' : '') + '" style="border-left-color:' + color + '" onclick="openEdit(' + row.id + ',\'' + dateStr + '\')">' +
@@ -933,15 +941,15 @@
       return o;
     }
     function mergeInto(base, extra) { for (var k in extra) base[k] = extra[k]; return base; }
-    function newEx(v, sf) { return mergeInto({ id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: !!v.pin, cat: v.cat || '' }, sf); }
-    function assignVals(row, v) { row.who = v.who; row.start = v.start; row.end = v.end; row.title = v.title; row.pin = !!v.pin; row.cat = v.cat || ''; }
+    function newEx(v, sf) { return mergeInto({ id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: !!v.pin, cat: v.cat || '', editor: v.editor || '' }, sf); }
+    function assignVals(row, v) { row.who = v.who; row.start = v.start; row.end = v.end; row.title = v.title; row.pin = !!v.pin; row.cat = v.cat || ''; row.editor = v.editor || ''; }
 
     // 수정 적용 (추가와 똑같은 6개 범위)
     function applyEditScoped(row, v) {
       var S = formScope, D = formAnchor;
       if (S === 'base') {                                  // 매일 전체
         if (isBaseItem(row)) assignVals(row, v);
-        else { exceptions = exceptions.filter(function (r) { return r.id !== row.id; }); schedule.push({ id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: !!v.pin, cat: v.cat || '' }); }
+        else { exceptions = exceptions.filter(function (r) { return r.id !== row.id; }); schedule.push({ id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: !!v.pin, cat: v.cat || '', editor: v.editor || '' }); }
         return;
       }
       var sf = scopeFields(S, D, pickedDates);
@@ -978,9 +986,10 @@
       var el = document.getElementById('hist-list');
       if (!history.length) { el.innerHTML = '<div class="hist-empty">아직 수정 내역이 없어요.</div>'; return; }
       el.innerHTML = history.map(function (h) {
-        var who = h.who ? people[h.who].name : '알 수 없음';
+        var mine = h.who && h.who === deviceWho;
+        var who = h.who ? people[h.who].name : '미지정';
         var actCls = h.act === '삭제' ? 'del' : h.act === '추가' ? 'add' : 'edit';
-        return '<div class="hist-item"><div class="hist-top"><span class="hist-who">' + who + '</span><span class="hist-time">' + fmtHistTime(h.t) + '</span></div>' +
+        return '<div class="hist-item"><div class="hist-top"><span class="hist-who' + (mine ? ' mine' : '') + '">' + (mine ? '✓ ' : '') + who + '</span><span class="hist-time">' + fmtHistTime(h.t) + '</span></div>' +
                '<div class="hist-body"><span class="hist-act ' + actCls + '">' + h.act + '</span> ' + escapeHtml(h.title) + (h.when ? ' <span class="hist-when">(' + h.when + ')</span>' : '') + '</div></div>';
       }).join('');
     }
@@ -1012,12 +1021,12 @@
       if (formScope === 'dates' && !pickedDates.length) { msg.textContent = '적용할 날짜를 하나 이상 고르세요.'; return; }
 
       var pin = document.getElementById('f-pin').checked;
-      var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat };
+      var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: deviceWho };
       var scopeLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', base: '매일' }[formScope] || '';
       if (editingItem) {                        // 수정 (6개 범위)
         applyEditScoped(editingItem, vals);
       } else if (formScope === 'base') {        // 매일 → 기본 일정에 추가
-        schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat });
+        schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: deviceWho });
       } else {                                  // 예외로 추가
         exceptions.push(newEx(vals, scopeFields(formScope, formAnchor, pickedDates)));
       }
