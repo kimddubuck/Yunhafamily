@@ -114,6 +114,11 @@
     .hist-act.add { background: #6B8E5A; } .hist-act.edit { background: #3B7DBF; } .hist-act.del { background: #C0392B; }
     .hist-when { font-size: 12px; color: var(--muted); }
     .hist-undo { margin-top: 8px; border: 1.5px solid var(--line); background: var(--card); color: var(--accent); border-radius: 999px; padding: 5px 12px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .ci-item { display: flex; align-items: center; gap: 8px; padding: 11px 4px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 14px; }
+    .ci-item:active { background: var(--bg); }
+    .ci-item .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .ci-item .ci-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ci-item .ci-sub { font-size: 12px; color: var(--muted); flex-shrink: 0; }
     .modal.ow { z-index: 46; }
     .ow-list { margin-bottom: 10px; }
     .ow-item { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
@@ -241,6 +246,16 @@
         <div class="sheet-title">최근 수정 내역</div>
         <div class="hist-list" id="hist-list"></div>
         <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeHistory()">닫기</button></div>
+      </div>
+    </div>
+
+    <!-- 그룹(종류)별 일정 보기·옮기기 -->
+    <div class="modal" id="catitems-modal">
+      <div class="sheet">
+        <div class="sheet-title" id="ci-title">그룹 일정</div>
+        <div class="field"><label>① 옮길 곳을 먼저 고르고 → ② 일정을 톡</label><div class="cat-pick" id="ci-targets"></div></div>
+        <div class="hist-list" id="ci-list"></div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeCatItems()">닫기</button></div>
       </div>
     </div>
 
@@ -693,9 +708,14 @@
     function legendEntries(who, segs) {
       if (who === 'all') return [['아빠 육아', leadColors.dad], ['엄마 육아', leadColors.mom], ['함께 육아', leadColors.both], ['자유·개인', leadColors.free]];
       var seen = {}; segs.forEach(function (s) { seen[s.cat] = colorForCat(s.cat); });
-      return Object.keys(seen).map(function (k) { return [nameForCat(k), seen[k]]; });
+      return Object.keys(seen).map(function (k) { return [nameForCat(k), seen[k], k]; });
     }
-    function legendHTML(entries) { return entries.map(function (e) { return '<span class="lg"><span class="dot" style="background:' + e[1] + '"></span>' + e[0] + '</span>'; }).join(''); }
+    function legendHTML(entries) {
+      return entries.map(function (e) {
+        var click = e[2] !== undefined ? ' onclick="openCatItems(this.dataset.k)" data-k="' + escapeHtml(e[2]) + '" style="cursor:pointer"' : '';
+        return '<span class="lg"' + click + '><span class="dot" style="background:' + e[1] + '"></span>' + e[0] + '</span>';
+      }).join('');
+    }
 
     /* ===== 원형 시계 ===== */
     var CX = 150, CY = 150;
@@ -1591,6 +1611,57 @@
                '<div class="hist-body"><span class="hist-act ' + actCls + '">' + h.act + '</span> ' + escapeHtml(h.title) + (h.when ? ' <span class="hist-when">(' + h.when + ')</span>' : '') + '</div>' + undoBtn + '</div>';
       }).join('');
     }
+    /* ===== 그룹(종류)별 일정 보기·옮기기 ===== */
+    var ciKey = null, ciTarget = null, ciMoved = 0;
+    function openCatItems(key) {
+      ciKey = key; ciTarget = null; ciMoved = 0;
+      renderCiTargets(); renderCiList();
+      document.getElementById('catitems-modal').classList.add('open');
+    }
+    function renderCiTargets() {
+      document.getElementById('ci-targets').innerHTML = categories
+        .filter(function (c) { return c.key !== ciKey; })
+        .map(function (c) {
+          return '<button class="cat' + (ciTarget === c.key ? ' active' : '') + '" onclick="pickCiTarget(this.dataset.k)" data-k="' + escapeHtml(c.key) + '"' +
+                 (ciTarget === c.key ? ' style="background:' + c.color + ';border-color:transparent;color:#fff"' : '') + '>' +
+                 '<span class="dot" style="background:' + c.color + '"></span>' + escapeHtml(c.name) + '</button>';
+        }).join('');
+    }
+    function pickCiTarget(k) { ciTarget = k; renderCiTargets(); }
+    function ciScopeLabel(r) {
+      if (isBaseItem(r)) return '매일';
+      return { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', weekdays: '요일 반복', nthwd: '매월 몇째 주' }[r.scope] || '';
+    }
+    function renderCiList() {
+      var items = schedule.concat(exceptions).filter(function (r) { return catOf(r) === ciKey; })
+        .sort(function (a, b) { return (a.who > b.who ? 1 : a.who < b.who ? -1 : 0) || (toMin(a.start || '00:00') - toMin(b.start || '00:00')); });
+      document.getElementById('ci-title').textContent = '「' + nameForCat(ciKey) + '」 그룹 일정 (' + items.length + '개)';
+      if (!items.length) {
+        document.getElementById('ci-list').innerHTML = '<div class="hist-empty">이 그룹에 연결된 일정이 없어요.</div>';
+        return;
+      }
+      document.getElementById('ci-list').innerHTML = items.map(function (r) {
+        var time = r.todo ? '📝 메모' : (r.start + '–' + r.end);
+        return '<div class="ci-item" onclick="ciMove(' + r.id + ')">' +
+               '<span class="dot" style="background:' + people[r.who].color + '"></span>' +
+               '<span class="ci-t"><b>' + people[r.who].name + '</b> ' + escapeHtml(r.title) + '</span>' +
+               '<span class="ci-sub">' + time + ' · ' + ciScopeLabel(r) + '</span></div>';
+      }).join('');
+    }
+    function ciMove(id) {
+      if (!ciTarget) { showToast('먼저 위에서 옮길 그룹을 골라주세요'); return; }
+      var r = schedule.concat(exceptions).filter(function (x) { return x.id === id; })[0];
+      if (!r) return;
+      r.cat = ciTarget; ciMoved++;
+      saveAll(); renderCiList();
+      showToast('→ ' + nameForCat(ciTarget) + '(으)로 옮겼어요');
+    }
+    function closeCatItems() {
+      document.getElementById('catitems-modal').classList.remove('open');
+      if (ciMoved) { logChange('수정', '그룹 정리 (' + ciMoved + '개 이동)', '전체', deviceWho); saveAll(); refreshAll(); }
+      ciKey = null; ciTarget = null; ciMoved = 0;
+    }
+
     function openHistory() { document.getElementById('hist-modal').classList.add('open'); renderHistory(); }
     function closeHistory() { document.getElementById('hist-modal').classList.remove('open'); }
     function countPins() {
