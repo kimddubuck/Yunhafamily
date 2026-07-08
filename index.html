@@ -240,7 +240,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v41</div>
+      <div class="app-ver">v42</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -249,7 +249,18 @@
         <div class="sheet-title">최근 수정 내역</div>
         <div class="hist-list" id="hist-list"></div>
         <button class="reset-pins-btn" onclick="askCleanup()">🧹 데이터 정리 (중복·지난 조각 청소)</button>
+        <button class="reset-pins-btn" style="color:#C0392B;border-color:#E5C4BF" onclick="askResetAll()">🗑 전체 초기화 (모든 일정 삭제)</button>
         <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeHistory()">닫기</button></div>
+      </div>
+    </div>
+
+    <!-- 전체 초기화 확인 -->
+    <div class="modal ow" id="resetall-modal">
+      <div class="sheet">
+        <div class="sheet-title">🗑 모든 일정을 지울까요?</div>
+        <div class="ow-note" id="resetall-text" style="font-size:14px;color:var(--ink)"></div>
+        <div class="ow-note">모든 기기(폰·PC)에서 함께 지워져요. 종류(그룹) 설정은 남아요. 실수라면 수정내역의 ↩️ 되돌리기로 이 폰에서 복구할 수 있어요.</div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeResetAll()">취소</button><button class="btn btn-save" style="background:#C0392B" onclick="confirmResetAll()">전부 삭제</button></div>
       </div>
     </div>
 
@@ -2362,6 +2373,22 @@
 
     /* ===== 앱 시작 ===== */
     // 예전 버그로 쌓인 일괄분 중복 청소: 같은 사람·같은 범위·같은 시간·같은 제목의 bulk 예외가 여러 개면 하나만 남김
+    /* ===== 🗑 전체 초기화 ===== */
+    function askResetAll() {
+      var n = schedule.length + exceptions.length;
+      if (!n) { showToast('지울 일정이 없어요'); return; }
+      document.getElementById('resetall-text').innerHTML = '일정 <b>' + n + '개</b>가 전부 지워져요. (기본 루틴 ' + schedule.length + ' + 변경·반복 ' + exceptions.length + ')';
+      document.getElementById('resetall-modal').classList.add('open');
+    }
+    function closeResetAll() { document.getElementById('resetall-modal').classList.remove('open'); }
+    function confirmResetAll() {
+      closeResetAll();
+      schedule = []; exceptions = []; hides = [];
+      logChange('삭제', '전체 초기화', '전체', deviceWho);
+      saveAll(); refreshAll();
+      showToast('🗑 모든 일정을 지웠어요 (수정내역에서 되돌리기 가능)');
+    }
+
     /* ===== 🧹 데이터 정리 ===== */
     function itemKey(r) {   // '완전 동일' 판정: 범위까지 모든 값이 같아야 중복
       var sc = isBaseItem(r) ? 'base' : JSON.stringify({
