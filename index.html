@@ -635,7 +635,11 @@
     ];
     var categories = DEFAULT_CATS.map(function (c) { return { key: c.key, name: c.name, color: c.color }; });
     var catColorObj = {}, catNameObj = {};
-    function normalizeCats() { categories.forEach(function (c) { if (!c.key) c.key = c.name; }); }   // 옛 데이터(키 없음) 보정
+    function normalizeCats() {
+      categories.forEach(function (c) { if (!c.key) c.key = c.name; });   // 옛 데이터(키 없음) 보정
+      // '기타'는 분류 안 된 일정이 자동으로 담기는 바구니 — 지워졌으면 복원해서 색·이름을 바꿀 수 있게
+      if (!categories.some(function (c) { return c.key === '기타'; })) categories.push({ key: '기타', name: '기타', color: '#D3D1C7' });
+    }
     function rebuildCatColors() { catColorObj = {}; catNameObj = {}; categories.forEach(function (c) { catColorObj[c.key] = c.color; catNameObj[c.key] = c.name; }); }
     rebuildCatColors();
     function colorForCat(key) { return catColorObj[key] || '#D3D1C7'; }   // 지워진 종류는 회색으로
@@ -1340,6 +1344,7 @@
     function deleteCat(ev, key) {
       ev.stopPropagation();
       if (categories.length <= 1) return;
+      if (key === '기타') { showToast('「기타」는 분류 안 된 일정이 담기는 바구니라 지울 수 없어요. 색·이름은 바꿀 수 있어요.'); return; }
       categories = categories.filter(function (c) { return c.key !== key; });
       if (formCat === key) formCat = '';
       rebuildCatColors(); saveAll(); buildCatButtons(); refreshAll();
