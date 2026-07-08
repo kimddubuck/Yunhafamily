@@ -39,6 +39,32 @@
 
     .screen { display: none; }
     .screen.active { display: block; }
+    /* ===== 가로 화면(태블릿 거치·폰 가로): 데일리 2단 대시보드 ===== */
+    @media (orientation: landscape) and (min-width: 640px) {
+      .app { max-width: 1080px; }
+      .header { padding-top: calc(14px + env(safe-area-inset-top)); }
+      #screen-daily.active {
+        display: grid;
+        grid-template-columns: minmax(330px, 46%) 1fr;
+        column-gap: 16px;
+        align-items: start;
+        grid-template-areas:
+          "title  title"
+          "people people"
+          "clock  toggle"
+          "clock  list"
+          "clock  grid"
+          "clock  tip";
+      }
+      #screen-daily .screen-title { grid-area: title; }
+      #screen-daily .people { grid-area: people; }
+      #screen-daily .clock-card { grid-area: clock; position: sticky; top: 10px; }
+      #screen-daily .clock-card svg { max-width: 420px; }
+      #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; }
+      #screen-daily #daily-list { grid-area: list; }
+      #screen-daily #daily-grid { grid-area: grid; }
+      #screen-daily #tg-tip { grid-area: tip; }
+    }
     .screen-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
 
     .people { display: flex; gap: 8px; margin-bottom: 14px; }
@@ -240,7 +266,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">2026.07.08.ver</div>
+      <div class="app-ver">v47</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -768,6 +794,17 @@
     function buildClockSVG(items, who, showNow) {
       var segs = segmentsFor(items, who);
       var uid = (window.__svgUid = (window.__svgUid || 0) + 1);   // 시계가 2개 떠도 id 안 겹치게
+      // 가로 화면(태블릿 거치)에서는 조각 안에 일정 이름도 표시
+      var withLabels = (who !== 'all');   // 세로·가로 모두 조각 이름 표시 (45분 이상 조각만)
+      var labels = '';
+      function segLabel(seg, span, isNight) {
+        if (!withLabels || span < 40) return;
+        var lt = String(seg.title || '').replace(/\(.*$/, '').trim();
+        if (!lt) return;
+        if (lt.length > 6) lt = lt.slice(0, 6) + '…';
+        var lp = pointOnCircle(89, ((seg.s + span / 2) % 1440) / 1440 * 360);
+        labels += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="central" font-size="8.5" font-weight="700" fill="#FFFFFF" stroke="rgba(0,0,0,0.3)" stroke-width="2.2" paint-order="stroke" font-family="inherit">' + escapeHtml(lt) + '</text>';
+      }
       function isNightSeg(seg) {   // '수면' 그룹(취침)만 밤하늘로
         var nm = String(nameForCat(seg.cat) || '');
         return nm.indexOf('수면') >= 0 || nm.indexOf('취침') >= 0;
@@ -853,18 +890,20 @@
                  '<circle cx="' + mp[0].toFixed(1) + '" cy="' + mp[1].toFixed(1) + '" r="8" fill="#FBF2C0"/>' +
                  '<circle cx="' + (mp[0] + 3.6).toFixed(1) + '" cy="' + (mp[1] - 2.2).toFixed(1) + '" r="7" fill="url(#nightGrad' + uid + ')"/>';
           night += '<g clip-path="url(#nclip' + uid + '_' + seg.s + ')">' + sky + '</g>';
+          segLabel(seg, span, true);
           return '<clipPath id="nclip' + uid + '_' + seg.s + '"><path d="' + d + '"/></clipPath>' +
                  '<path d="' + d + '" fill="url(#nightGrad' + uid + ')" stroke="#FFFFFF" stroke-width="1"/>';
         }
         // 일반 조각 + 그룹별 스티커 (45분 이상인 조각에만)
         var out = '<path d="' + d + '" fill="' + seg.color + '" stroke="#FFFFFF" stroke-width="1"/>';
+        segLabel(seg, span, false);
         var mk = motifsForName(String(nameForCat(seg.cat) || ''));
         if (mk && span >= 45) {
           var cnt = Math.max(1, Math.min(3, Math.round(span / 110)));
           var g = '';
           for (var j = 0; j < cnt; j++) {
             var ma = (seg.s + span * (cnt === 1 ? 0.5 : 0.18 + 0.64 * j / (cnt - 1))) / 1440 * 360;
-            var mpn = pointOnCircle(100, ma);
+            var mpn = pointOnCircle(withLabels ? 106 : 100, ma);   // 라벨 있을 땐 스티커를 살짝 바깥으로
             g += mk[j % mk.length](mpn[0].toFixed(1), mpn[1].toFixed(1), j);
           }
           deco += '<g clip-path="url(#nclip' + uid + '_' + seg.s + ')">' + g + '</g>';
@@ -894,7 +933,7 @@
       }
       var center = '<text x="150" y="146" text-anchor="middle" font-size="15" font-weight="600" fill="#2C2C2A">' + people[who].name + '</text>' +
                    '<text x="150" y="164" text-anchor="middle" font-size="11" fill="#8C8B82">' + (who === 'all' ? '육아 당번' : '하루') + '</text>';
-      return '<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">' + defs + arcs + night + deco + dividers + marks + nowMark + center + '</svg>';
+      return '<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">' + defs + arcs + night + deco + labels + dividers + marks + nowMark + center + '</svg>';
     }
 
     /* ===== 목록 한 줄 (누르면 수정창) — 예외면 배지 표시 ===== */
@@ -2501,6 +2540,12 @@
       });
       if (exceptions.length !== before) { saveAll(); }
     }
+
+    var __rotT = null;
+    window.addEventListener('resize', function () {   // 가로/세로 회전 시 시계 다시 그리기
+      clearTimeout(__rotT);
+      __rotT = setTimeout(function () { if (!window.__tgDragging) try { refreshAll(); } catch (e) {} }, 250);
+    });
 
     loadAll(); assignIds(); dedupeBulk(); lastSnapshot = snapState(); showToday();
     buildCatButtons();
