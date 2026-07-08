@@ -275,7 +275,7 @@
     <div class="modal" id="xls-modal">
       <div class="sheet">
         <div class="sheet-title">📄 엑셀에서 하루 일과 가져오기</div>
-        <div class="ow-note">양식: 1행에 <b>시간 | 아빠 | 엄마 | 딸</b> (이름 상필·나영·윤하도 인식), 아래로 <b>05:00 ~ 05:30</b>처럼 30분 칸이에요. 같은 이름이 이어지면 한 일정으로 합치고, 빈칸·'자유'는 건너뛰어요.</div>
+        <div class="ow-note">양식: 1행에 <b>시간 | 아빠 | 엄마 | 딸</b> (이름 상필·나영·윤하도 인식), 아래로 <b>05:00 ~ 05:30</b>처럼 30분 칸이에요. 같은 이름이 이어지면 한 일정으로 합치고, 빈칸·'-'는 건너뛰어요. 제목이 종류 이름과 맞으면(자유→자유시간 등) 그 색으로 들어가요.</div>
         <button class="btn btn-cancel" style="width:100%;margin-bottom:10px" onclick="downloadXlsTemplate()">⬇️ 빈 양식 내려받기</button>
         <input type="file" id="xls-file" accept=".xlsx,.xls" onchange="handleXlsFile(this)" style="width:100%;font-size:14px;margin-bottom:10px" />
         <div class="ow-note" id="xls-preview"></div>
@@ -1681,7 +1681,7 @@
         if (!tm) { if ((rows[r] || []).join('')) skipped++; continue; }
         whoCols.forEach(function (wc) {
           var title = String((rows[r] || [])[wc.col] || '').trim();
-          if (!title || title === '-' || title === '자유' || title.toLowerCase() === 'x') return;
+          if (!title || title === '-' || title.toLowerCase() === 'x') return;
           slots[wc.who].push({ s: tm.s, e: tm.e, title: title });
         });
       }
@@ -1698,6 +1698,7 @@
         if (out.length > 1) {   // 밤 취침(…–00:00)과 첫 새벽 조각(같은 이름) 합치기
           var f = out[0], l = out[out.length - 1];
           if (f.title === l.title && l.e === '00:00') { f.s = l.s; out.pop(); }
+          else if (l.e === '00:00' && f.s !== '00:00' && /취침|수면|잠/.test(l.title)) l.e = f.s;   // 파일이 새벽 없이 시작하면: 자정 넘어 첫 일정까지 계속 자는 걸로
         }
         events[w] = out; total += out.length;
       });
@@ -1709,6 +1710,10 @@
         '<br>「오늘에 적용」을 누르면 <b>오늘 하루</b>가 이 내용으로 바뀌어요. 반복하려면 이어서 <b>일괄 적용</b>을 쓰세요.';
       document.getElementById('xls-msg').textContent = '';
       document.getElementById('xls-apply').disabled = false;
+    }
+    function xlsCatFor(title) {   // 제목이 종류 이름과 닿으면 그 종류 색으로 (자유 → 자유시간 등)
+      var m = categories.filter(function (c) { return title.indexOf(c.name) >= 0 || c.name.indexOf(title) >= 0; })[0];
+      return m ? m.key : '';
     }
     function applyXls() {
       if (!xlsParsed) return;
@@ -1725,7 +1730,7 @@
       var cnt = 0;
       persons.forEach(function (w) {
         xlsParsed[w].forEach(function (ev) {
-          exceptions.push(newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: '', editor: deviceWho }, { scope: 'day', date: todayStr }));
+          exceptions.push(newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: xlsCatFor(ev.title), editor: deviceWho }, { scope: 'day', date: todayStr }));
           cnt++;
         });
       });
