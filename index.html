@@ -119,6 +119,8 @@
     .ci-item .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
     .ci-item .ci-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ci-item .ci-sub { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+    .ci-x { flex-shrink: 0; border: 1.5px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; width: 26px; height: 26px; font-size: 15px; line-height: 1; cursor: pointer; font-family: inherit; }
+    .ci-x.arm { width: auto; padding: 0 10px; background: #C0392B; color: #fff; border-color: transparent; font-size: 12px; font-weight: 700; }
     .modal.ow { z-index: 46; }
     .ow-list { margin-bottom: 10px; }
     .ow-item { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
@@ -245,7 +247,18 @@
       <div class="sheet">
         <div class="sheet-title">최근 수정 내역</div>
         <div class="hist-list" id="hist-list"></div>
+        <button class="reset-pins-btn" onclick="askCleanup()">🧹 데이터 정리 (중복·지난 조각 청소)</button>
         <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeHistory()">닫기</button></div>
+      </div>
+    </div>
+
+    <!-- 데이터 정리 확인 -->
+    <div class="modal ow" id="clean-modal">
+      <div class="sheet">
+        <div class="sheet-title">🧹 데이터를 정리할까요?</div>
+        <div class="ow-note" id="clean-text" style="font-size:14px;color:var(--ink)"></div>
+        <div class="ow-note">완전히 똑같은 중복은 하나만 남기고, 30일 넘게 지난 하루짜리 조각·기간 끝난 반복·빈 껍데기를 지워요.</div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeCleanup()">취소</button><button class="btn btn-save" onclick="confirmCleanup()">정리하기</button></div>
       </div>
     </div>
 
@@ -1642,11 +1655,28 @@
       }
       document.getElementById('ci-list').innerHTML = items.map(function (r) {
         var time = r.todo ? '📝 메모' : (r.start + '–' + r.end);
-        return '<div class="ci-item" onclick="ciMove(' + r.id + ')">' +
+        return '<div class="ci-item">' +
                '<span class="dot" style="background:' + people[r.who].color + '"></span>' +
-               '<span class="ci-t"><b>' + people[r.who].name + '</b> ' + escapeHtml(r.title) + '</span>' +
-               '<span class="ci-sub">' + time + ' · ' + ciScopeLabel(r) + '</span></div>';
+               '<span class="ci-t" onclick="ciMove(' + r.id + ')"><b>' + people[r.who].name + '</b> ' + escapeHtml(r.title) + '</span>' +
+               '<span class="ci-sub" onclick="ciMove(' + r.id + ')">' + time + ' · ' + ciScopeLabel(r) + '</span>' +
+               '<button class="ci-x" onclick="ciDelete(event,' + r.id + ',this)">×</button></div>';
       }).join('');
+    }
+    function ciDelete(ev, id, btn) {   // 두 번 눌러 삭제 (반복 전체가 지워져요)
+      ev.stopPropagation();
+      if (!btn.dataset.arm) {
+        btn.dataset.arm = '1'; btn.textContent = '정말?'; btn.classList.add('arm');
+        setTimeout(function () { if (btn.isConnected) { delete btn.dataset.arm; btn.textContent = '×'; btn.classList.remove('arm'); } }, 2500);
+        return;
+      }
+      var r = schedule.concat(exceptions).filter(function (x) { return x.id === id; })[0];
+      if (!r) return;
+      if (isBaseItem(r)) { schedule = schedule.filter(function (x) { return x.id !== id; }); hides = hides.filter(function (h) { return h.baseId !== id; }); }
+      else exceptions = exceptions.filter(function (x) { return x.id !== id; });
+      logChange('삭제', people[r.who].name + ' ' + r.title, '반복 전체', deviceWho);
+      ciMoved++;   // 닫을 때 화면 갱신되도록
+      saveAll(); refreshAll(); renderCiList();
+      showToast('🗑 「' + r.title + '」 전체 삭제됨 (수정내역에서 되돌리기 가능)');
     }
     function ciMove(id) {
       if (!ciTarget) { showToast('먼저 위에서 옮길 그룹을 골라주세요'); return; }
@@ -2105,6 +2135,14 @@
       var scopeLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', weekdays: '요일 반복', nthwd: '매월 몇째 주', base: '매일' }[formScope] || '';
       var sfN = formScope === 'base' ? { scope: 'base' } : scopeFields(formScope, formAnchor, pickedDates);
 
+      // ③ 완전히 똑같은 일정(범위까지 동일)이 이미 있으면 막기 — 새로 추가할 때만
+      if (!editingItem) {
+        var newKey = [formWho, title, start, end, todo ? 1 : 0, pin ? 1 : 0, formCat || '',
+          formScope === 'base' ? 'base' : JSON.stringify({ s: sfN.scope, d: sfN.date || '', we: sfN.weekEnd || '', ym: sfN.ym || '', y: sfN.y || '', ds: (sfN.dates || []).slice().sort(), f: sfN.from || '', u: sfN.until || '', dy: (sfN.days || []).slice().sort(), n: sfN.nth || '', wd: sfN.day === undefined ? '' : sfN.day, ex: [] })].join('|');
+        var dupExists = schedule.concat(exceptions).some(function (r) { return itemKey(r) === newKey; });
+        if (dupExists) { formError(msg, '완전히 똑같은 일정이 이미 있어요.'); return; }
+      }
+
       // 같은 사람이 같은 시간에 겹치는 기존 일정 모으기 (할 일은 시간이 없어 검사 제외)
       var conflicts = [];
       if (!todo) {
@@ -2203,6 +2241,95 @@
 
     /* ===== 앱 시작 ===== */
     // 예전 버그로 쌓인 일괄분 중복 청소: 같은 사람·같은 범위·같은 시간·같은 제목의 bulk 예외가 여러 개면 하나만 남김
+    /* ===== 🧹 데이터 정리 ===== */
+    function itemKey(r) {   // '완전 동일' 판정: 범위까지 모든 값이 같아야 중복
+      var sc = isBaseItem(r) ? 'base' : JSON.stringify({
+        s: r.scope, d: r.date || '', we: r.weekEnd || '', ym: r.ym || '', y: r.y || '',
+        ds: (r.dates || []).slice().sort(), f: r.from || '', u: r.until || '',
+        dy: (r.days || []).slice().sort(), n: r.nth || '', wd: r.day === undefined ? '' : r.day,
+        ex: (r.excl || []).slice().sort()
+      });
+      return [r.who, r.title, r.start || '', r.end || '', r.todo ? 1 : 0, r.pin ? 1 : 0, r.cat || '', sc].join('|');
+    }
+    function scanCleanup() {
+      var cutoff = ymd(new Date(Date.now() - 30 * 86400000));   // 30일 유예
+      var plan = { dupIds: [], remap: {}, expEx: [], expHide: [], orphHide: [], emptyEx: [], exclPrune: 0 };
+      // (a) 완전 동일 중복 — 오래된 것(작은 번호)을 남김
+      var seen = {};
+      schedule.concat(exceptions).slice().sort(function (a, b) { return a.id - b.id; }).forEach(function (r) {
+        var k = itemKey(r);
+        if (seen[k] !== undefined) { plan.dupIds.push(r.id); plan.remap[r.id] = seen[k]; }
+        else seen[k] = r.id;
+      });
+      // (b) 기간 만료 (30일 이상 지난 것만)
+      function monthEnd(ym) { var p = ym.split('-'); return ymd(new Date(+p[0], +p[1], 0)); }
+      exceptions.forEach(function (E) {
+        if (plan.dupIds.indexOf(E.id) >= 0) return;
+        if (E.scope === 'day' && E.date < cutoff) plan.expEx.push(E.id);
+        else if (E.scope === 'weekFrom' && E.weekEnd < cutoff) plan.expEx.push(E.id);
+        else if (E.scope === 'month' && monthEnd(E.ym) < cutoff) plan.expEx.push(E.id);
+        else if (E.scope === 'year' && (E.y + '-12-31') < cutoff) plan.expEx.push(E.id);
+        else if ((E.scope === 'weekdays' || E.scope === 'nthwd') && E.until && E.until < cutoff) plan.expEx.push(E.id);
+        else if (E.scope === 'dates' && E.dates.every(function (d) { return d < cutoff; })) plan.expEx.push(E.id);
+      });
+      hides.forEach(function (h, i) {
+        var sc = h.scope || 'day', dead = false;
+        if (sc === 'day' && (h.date || '') < cutoff) dead = true;
+        else if (sc === 'weekFrom' && (h.weekEnd || '') < cutoff) dead = true;
+        else if (sc === 'month' && monthEnd(h.ym) < cutoff) dead = true;
+        else if (sc === 'year' && (h.y + '-12-31') < cutoff) dead = true;
+        else if ((sc === 'weekdays' || sc === 'nthwd') && h.until && h.until < cutoff) dead = true;
+        if (dead) plan.expHide.push(i);
+      });
+      // (c) 빈 껍데기: 대상 없는 가림, 날짜가 다 빠진 예외, 제외로 적용일이 0이 된 유한 반복
+      hides.forEach(function (h, i) {
+        if (plan.expHide.indexOf(i) >= 0) return;
+        var bid = plan.remap[h.baseId] !== undefined ? plan.remap[h.baseId] : h.baseId;
+        if (!schedule.some(function (b) { return b.id === bid && plan.dupIds.indexOf(b.id) < 0; })) plan.orphHide.push(i);
+      });
+      exceptions.forEach(function (E) {
+        if (plan.dupIds.indexOf(E.id) >= 0 || plan.expEx.indexOf(E.id) >= 0) return;
+        if (E.scope === 'dates' && !E.dates.length) { plan.emptyEx.push(E.id); return; }
+        if (E.excl && E.excl.length && E.scope !== 'weekdays' && E.scope !== 'nthwd') {
+          var ds = enumScopeDates(E);
+          if (ds.length && ds.every(function (d) { return E.excl.indexOf(d) >= 0; })) plan.emptyEx.push(E.id);
+        }
+        if (E.excl) plan.exclPrune += E.excl.filter(function (d) { return d < cutoff; }).length;
+      });
+      plan.total = plan.dupIds.length + plan.expEx.length + plan.expHide.length + plan.orphHide.length + plan.emptyEx.length;
+      return plan;
+    }
+    var cleanPlan = null;
+    function askCleanup() {
+      cleanPlan = scanCleanup();
+      if (!cleanPlan.total && !cleanPlan.exclPrune) { showToast('정리할 데이터가 없어요. 깨끗해요! ✨'); return; }
+      var parts = [];
+      if (cleanPlan.dupIds.length) parts.push('완전 동일 중복 ' + cleanPlan.dupIds.length + '개');
+      if (cleanPlan.expEx.length + cleanPlan.expHide.length) parts.push('기간 지난 것(30일 유예) ' + (cleanPlan.expEx.length + cleanPlan.expHide.length) + '개');
+      if (cleanPlan.orphHide.length + cleanPlan.emptyEx.length) parts.push('빈 껍데기 ' + (cleanPlan.orphHide.length + cleanPlan.emptyEx.length) + '개');
+      document.getElementById('clean-text').innerHTML = parts.join('<br>') + '<br><b>화면에 보이는 일정은 바뀌지 않아요.</b> (범위가 다른 것끼리는 안 건드려요)';
+      document.getElementById('clean-modal').classList.add('open');
+    }
+    function closeCleanup() { document.getElementById('clean-modal').classList.remove('open'); cleanPlan = null; }
+    function confirmCleanup() {
+      var p = cleanPlan; closeCleanup();
+      if (!p) return;
+      var cutoff = ymd(new Date(Date.now() - 30 * 86400000));
+      hides.forEach(function (h) { if (p.remap[h.baseId] !== undefined) h.baseId = p.remap[h.baseId]; });   // 가림을 남는 쪽으로 옮겨붙임
+      schedule = schedule.filter(function (r) { return p.dupIds.indexOf(r.id) < 0; });
+      exceptions = exceptions.filter(function (r) { return p.dupIds.indexOf(r.id) < 0 && p.expEx.indexOf(r.id) < 0 && p.emptyEx.indexOf(r.id) < 0; });
+      hides = hides.filter(function (h, i) { return p.expHide.indexOf(i) < 0 && p.orphHide.indexOf(i) < 0; });
+      var hseen = {};   // 중복 가림 정리
+      hides = hides.filter(function (h) {
+        var k = h.baseId + '|' + JSON.stringify({ s: h.scope || 'day', d: h.date || '', we: h.weekEnd || '', ym: h.ym || '', y: h.y || '', f: h.from || '', u: h.until || '', dy: (h.days || []).slice().sort(), n: h.nth || '', wd: h.day === undefined ? '' : h.day });
+        if (hseen[k]) return false; hseen[k] = true; return true;
+      });
+      exceptions.forEach(function (E) { if (E.excl) E.excl = E.excl.filter(function (d) { return d >= cutoff; }); });
+      logChange('수정', '데이터 정리 (' + p.total + '개)', '전체', deviceWho);
+      saveAll(); refreshAll();
+      showToast('🧹 데이터 ' + p.total + '개를 정리했어요');
+    }
+
     function dedupeBulk() {
       var seen = {}, before = exceptions.length;
       exceptions = exceptions.filter(function (E) {
