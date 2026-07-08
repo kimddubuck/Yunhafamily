@@ -150,11 +150,12 @@
     .tg-todos { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 10px 0; }
     .tg-todo { border: 1.5px solid; border-radius: 4px 12px 4px 4px; padding: 4px 11px; font-size: 12px; font-weight: 600; color: #5A4A0E; background: #FFF6C9; box-shadow: 1px 2px 3px rgba(0,0,0,0.12); cursor: pointer; }
     .tg { position: relative; margin: 0 6px 8px; }
-    .tg-line { position: absolute; left: 40px; right: 26px; border-top: 1px solid var(--line); }
+    .tg-line { position: absolute; left: 38px; right: 48px; border-top: 1px solid var(--line); }
+    .tg-line.half { border-top: 1px dashed var(--line); opacity: 0.45; }
     .tg-hr { position: absolute; left: 0; width: 34px; text-align: right; font-size: 10px; color: var(--muted); }
     .tg-now { position: absolute; left: 40px; right: 26px; border-top: 2px solid #C0392B; z-index: 6; pointer-events: none; }
     .tgb { position: absolute; border-radius: 8px; color: #fff; padding: 3px 7px 3px 7px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.18); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
-    .tg-scrollstrip { position: absolute; top: 0; bottom: 0; right: 0; width: 26px; z-index: 2; background: repeating-linear-gradient(180deg, transparent 0 6px, rgba(0,0,0,0.05) 6px 8px); border-radius: 6px; pointer-events: none; }
+    .tg-scrollstrip { position: absolute; top: 0; bottom: 0; right: 0; width: 48px; z-index: 2; background: repeating-linear-gradient(180deg, transparent 0 6px, rgba(0,0,0,0.05) 6px 8px); border-radius: 6px; pointer-events: none; }
     .tgb .t { font-size: 11px; font-weight: 700; line-height: 1.3; }
     .tgb .tm { font-size: 10px; opacity: 0.9; }
     .tgb.drag { opacity: 0.9; box-shadow: 0 8px 18px rgba(0,0,0,0.3); z-index: 20; }
@@ -239,7 +240,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v37</div>
+      <div class="app-ver">v41</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -730,6 +731,18 @@
       }).join('');
     }
 
+    /* 그림 스티커 미리 확인: 저장소에 img/st_그룹.png 를 올려두면 자동으로 그림을 써요 (없으면 이모지) */
+    var stickerImgs = {};
+    (function () {
+      if (typeof Image === 'undefined') return;
+      var t = null;
+      ['운동', '육아', '자유', '식사', '놀이', '기타'].forEach(function (k) {
+        var im = new Image();
+        im.onload = function () { stickerImgs[k] = 'img/st_' + k + '.png'; clearTimeout(t); t = setTimeout(function () { try { refreshAll(); } catch (e) {} }, 150); };
+        im.src = 'img/st_' + k + '.png';
+      });
+    })();
+
     /* ===== 원형 시계 ===== */
     var CX = 150, CY = 150;
     function pointOnCircle(r, deg) { var a = deg * Math.PI / 180; return [CX + r * Math.sin(a), CY - r * Math.cos(a)]; }
@@ -743,7 +756,112 @@
     function clockLabel(r, deg, text) { var p = pointOnCircle(r, deg); return '<text x="' + p[0].toFixed(1) + '" y="' + (p[1] + 4).toFixed(1) + '" text-anchor="middle" font-size="11" fill="#8C8B82">' + text + '</text>'; }
     function buildClockSVG(items, who, showNow) {
       var segs = segmentsFor(items, who);
-      var arcs = segs.map(function (seg) { return '<path d="' + donutPath(78, 122, seg.s, seg.e) + '" fill="' + seg.color + '" stroke="#FFFFFF" stroke-width="1"/>'; }).join('');
+      var uid = (window.__svgUid = (window.__svgUid || 0) + 1);   // 시계가 2개 떠도 id 안 겹치게
+      function isNightSeg(seg) {   // '수면' 그룹(취침)만 밤하늘로
+        var nm = String(nameForCat(seg.cat) || '');
+        return nm.indexOf('수면') >= 0 || nm.indexOf('취침') >= 0;
+      }
+      var frac = function (x) { return x - Math.floor(x); };   // 위치용 고정 난수 (다시 그려도 안 흔들리게)
+      /* 스티커(모티프) 그리기 — 모두 translate 좌표계 기준 작은 그림 */
+      function mSparkle(x, y, s, rot, fill, op) {   // 가늘고 긴 4촉 반짝별 (손그림 느낌)
+        var w = (s * 0.22).toFixed(2);
+        return '<path d="M0 ' + (-s) + ' Q ' + w + ' -' + w + ' ' + s + ' 0 Q ' + w + ' ' + w + ' 0 ' + s + ' Q -' + w + ' ' + w + ' ' + (-s) + ' 0 Q -' + w + ' -' + w + ' 0 ' + (-s) + ' Z" transform="translate(' + x + ' ' + y + ') rotate(' + rot + ')" fill="' + fill + '" opacity="' + op + '"/>';
+      }
+      function mCloud(x, y, s, fill, op) {
+        return '<g transform="translate(' + x + ' ' + y + ')" fill="' + fill + '" opacity="' + op + '">' +
+               '<ellipse cx="0" cy="0" rx="' + (s * 1.5) + '" ry="' + (s * 0.75) + '"/><ellipse cx="' + (-s * 0.9) + '" cy="' + (s * 0.22) + '" rx="' + s + '" ry="' + (s * 0.55) + '"/><ellipse cx="' + (s * 0.95) + '" cy="' + (s * 0.18) + '" rx="' + (s * 0.9) + '" ry="' + (s * 0.5) + '"/></g>';
+      }
+      function mDumbbell(x, y, rot) {
+        return '<g transform="translate(' + x + ' ' + y + ') rotate(' + rot + ')" fill="#FFFFFF" opacity="0.9">' +
+               '<rect x="-3.6" y="-0.8" width="7.2" height="1.6" rx="0.8"/><rect x="-5.4" y="-2.4" width="2" height="4.8" rx="0.9"/><rect x="3.4" y="-2.4" width="2" height="4.8" rx="0.9"/></g>';
+      }
+      function mHeart(x, y, s) {
+        return '<g transform="translate(' + x + ' ' + y + ')" fill="#FFFFFF" opacity="0.9">' +
+               '<circle cx="' + (-s * 0.5) + '" cy="' + (-s * 0.3) + '" r="' + (s * 0.55) + '"/><circle cx="' + (s * 0.5) + '" cy="' + (-s * 0.3) + '" r="' + (s * 0.55) + '"/>' +
+               '<path d="M ' + (-s * 1.0) + ' ' + (-s * 0.12) + ' L 0 ' + (s * 1.05) + ' L ' + (s * 1.0) + ' ' + (-s * 0.12) + ' Z"/></g>';
+      }
+      function mBottle(x, y) {
+        return '<g transform="translate(' + x + ' ' + y + ') rotate(14)" fill="#FFFFFF" opacity="0.9">' +
+               '<rect x="-2" y="-2.6" width="4" height="6.4" rx="1.6"/><rect x="-1" y="-4.4" width="2" height="2" rx="0.9"/><circle cx="0" cy="-5" r="0.9"/></g>';
+      }
+      function mNote(x, y) {
+        return '<g transform="translate(' + x + ' ' + y + ')" fill="#FFFFFF" opacity="0.9">' +
+               '<ellipse cx="-1.5" cy="2.6" rx="1.8" ry="1.35" transform="rotate(-18 -1.5 2.6)"/><rect x="-0.15" y="-3.6" width="1.05" height="6.4" rx="0.5"/><path d="M0.9 -3.6 Q 4 -3 3 -0.6 L 2 -1 Q 2.7 -2.4 0.9 -2.5 Z"/></g>';
+      }
+      function mBalloon(x, y) {
+        return '<g transform="translate(' + x + ' ' + y + ')" fill="#FFFFFF" opacity="0.9">' +
+               '<ellipse cx="0" cy="-1.4" rx="2.5" ry="3"/><path d="M0 1.6 L -0.8 2.6 L 0.8 2.6 Z"/><path d="M0 2.6 q 1.4 1.6 0 3.4" stroke="#FFFFFF" stroke-width="0.7" fill="none"/></g>';
+      }
+      function mUtensils(x, y) {
+        return '<g transform="translate(' + x + ' ' + y + ') rotate(-10)" fill="#FFFFFF" opacity="0.9">' +
+               '<ellipse cx="-2.4" cy="-2.2" rx="1.5" ry="2.1"/><rect x="-2.9" y="-0.6" width="1" height="5.4" rx="0.5"/>' +
+               '<rect x="1.9" y="-1" width="1" height="5.8" rx="0.5"/><rect x="0.9" y="-4.2" width="0.8" height="3.4" rx="0.4"/><rect x="2" y="-4.2" width="0.8" height="3.4" rx="0.4"/><rect x="3.1" y="-4.2" width="0.8" height="3.4" rx="0.4"/></g>';
+      }
+      function mClover(x, y) {
+        return '<g transform="translate(' + x + ' ' + y + ')" fill="#FFFFFF" opacity="0.85">' +
+               '<circle cx="0" cy="-1.7" r="1.4"/><circle cx="-1.6" cy="0.6" r="1.4"/><circle cx="1.6" cy="0.6" r="1.4"/>' +
+               '<path d="M0 0.4 q 0.6 2.4 1.4 3.4" stroke="#FFFFFF" stroke-width="0.8" fill="none"/></g>';
+      }
+      function motifsForName(nm) {   // 그룹 이름 → 스티커 (그림 PNG가 있으면 그림, 없으면 컬러 이모지)
+        var EMO = { '운동': ['🏋️', '🏃'], '육아': ['🍼', '🧸'], '자유': ['🎈', '🎵'], '식사': ['🍽️', '☕'], '놀이': ['🧸', '🎨'], '기타': ['🍀'] };
+        var key = null;
+        for (var k2 in EMO) { if (nm.indexOf(k2) >= 0) { key = k2; break; } }
+        if (!key && nm.indexOf('분유') >= 0) key = '식사';
+        if (!key) return null;
+        if (stickerImgs[key]) {   // GitHub의 img/st_그룹.png 그림 스티커
+          return [function (x, y) { return '<image href="' + stickerImgs[key] + '" x="' + (x - 11) + '" y="' + (y - 11) + '" width="22" height="22"/>'; }];
+        }
+        return EMO[key].map(function (emo) {
+          return function (x, y) { return '<text x="' + x + '" y="' + y + '" text-anchor="middle" dominant-baseline="central" font-size="13">' + emo + '</text>'; };
+        });
+      }
+      var night = '', deco = '';
+      var arcs = segs.map(function (seg) {
+        var d = donutPath(78, 122, seg.s, seg.e);
+        var eL = seg.e <= seg.s ? seg.e + 1440 : seg.e, span = eL - seg.s;
+        if (isNightSeg(seg)) {
+          // 밤하늘 조각: 보랏빛 남색 + 구름 + 손그림 반짝별 + 초승달
+          var sky = '';
+          var nc = Math.max(1, Math.min(3, Math.round(span / 220)));
+          for (var c = 0; c < nc; c++) {   // 구름 (배경보다 살짝 어둡게)
+            var ca = (seg.s + 40 + (span - 80) * frac(c * 0.83 + 0.31)) / 1440 * 360;
+            var cp = pointOnCircle(88 + 22 * frac(c * 0.57 + 0.11), ca);
+            sky += mCloud(cp[0].toFixed(1), cp[1].toFixed(1), 6.5 + 3 * frac(c * 0.4), c % 2 ? '#8E96CF' : '#2E2F72', c % 2 ? 0.55 : 0.75);
+          }
+          var n = Math.max(5, Math.min(15, Math.round(span / 50)));
+          for (var k = 0; k < n; k++) {
+            var ang = (seg.s + 14 + (span - 28) * frac(k * 0.6180339 + 0.13)) / 1440 * 360;
+            var rad = 84 + 32 * frac(k * 0.7548776 + 0.37);
+            var p = pointOnCircle(rad, ang);
+            if (k % 3 === 2) sky += mSparkle(p[0].toFixed(1), p[1].toFixed(1), (2.6 + 1.6 * frac(k * 0.41)).toFixed(1), Math.round(30 * frac(k * 0.9)), '#FFFFFF', '0.95');
+            else sky += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="' + (0.6 + 0.8 * frac(k * 0.41 + 0.7)).toFixed(1) + '" fill="#FFFFFF" opacity="' + (0.5 + 0.5 * frac(k * 0.29)).toFixed(2) + '"/>';
+          }
+          var midAng = (seg.s + span / 2) / 1440 * 360, mp = pointOnCircle(100, midAng);
+          sky += '<circle cx="' + mp[0].toFixed(1) + '" cy="' + mp[1].toFixed(1) + '" r="13" fill="#FBF2C0" opacity="0.16"/>' +
+                 '<circle cx="' + mp[0].toFixed(1) + '" cy="' + mp[1].toFixed(1) + '" r="10" fill="#FBF2C0" opacity="0.22"/>' +
+                 '<circle cx="' + mp[0].toFixed(1) + '" cy="' + mp[1].toFixed(1) + '" r="8" fill="#FBF2C0"/>' +
+                 '<circle cx="' + (mp[0] + 3.6).toFixed(1) + '" cy="' + (mp[1] - 2.2).toFixed(1) + '" r="7" fill="url(#nightGrad' + uid + ')"/>';
+          night += '<g clip-path="url(#nclip' + uid + '_' + seg.s + ')">' + sky + '</g>';
+          return '<clipPath id="nclip' + uid + '_' + seg.s + '"><path d="' + d + '"/></clipPath>' +
+                 '<path d="' + d + '" fill="url(#nightGrad' + uid + ')" stroke="#FFFFFF" stroke-width="1"/>';
+        }
+        // 일반 조각 + 그룹별 스티커 (45분 이상인 조각에만)
+        var out = '<path d="' + d + '" fill="' + seg.color + '" stroke="#FFFFFF" stroke-width="1"/>';
+        var mk = motifsForName(String(nameForCat(seg.cat) || ''));
+        if (mk && span >= 45) {
+          var cnt = Math.max(1, Math.min(3, Math.round(span / 110)));
+          var g = '';
+          for (var j = 0; j < cnt; j++) {
+            var ma = (seg.s + span * (cnt === 1 ? 0.5 : 0.18 + 0.64 * j / (cnt - 1))) / 1440 * 360;
+            var mpn = pointOnCircle(100, ma);
+            g += mk[j % mk.length](mpn[0].toFixed(1), mpn[1].toFixed(1), j);
+          }
+          deco += '<g clip-path="url(#nclip' + uid + '_' + seg.s + ')">' + g + '</g>';
+          out = '<clipPath id="nclip' + uid + '_' + seg.s + '"><path d="' + d + '"/></clipPath>' + out;
+        }
+        return out;
+      }).join('');
+      var defs = '<defs><radialGradient id="nightGrad' + uid + '" cx="50%" cy="50%" r="65%"><stop offset="0%" stop-color="#4B4DA8"/><stop offset="100%" stop-color="#34367E"/></radialGradient></defs>';
       // 작업 경계선마다 구분선 (각 조각 시작점에 방사형 선)
       var dividers = segs.map(function (seg) {
         var deg = (seg.s % 1440) / 1440 * 360, a = pointOnCircle(78, deg), b = pointOnCircle(122, deg);
@@ -765,7 +883,7 @@
       }
       var center = '<text x="150" y="146" text-anchor="middle" font-size="15" font-weight="600" fill="#2C2C2A">' + people[who].name + '</text>' +
                    '<text x="150" y="164" text-anchor="middle" font-size="11" fill="#8C8B82">' + (who === 'all' ? '육아 당번' : '하루') + '</text>';
-      return '<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">' + arcs + dividers + marks + nowMark + center + '</svg>';
+      return '<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">' + defs + arcs + night + deco + dividers + marks + nowMark + center + '</svg>';
     }
 
     /* ===== 목록 한 줄 (누르면 수정창) — 예외면 배지 표시 ===== */
@@ -865,7 +983,7 @@
 
     /* ===== 데일리 시간표(격자) 보기 + 드래그로 시간 변경 ===== */
     var dailyView = 'list';
-    var HRPX = 48, PXMIN = HRPX / 60;   // 1시간=48px
+    var HRPX = 112, PXMIN = HRPX / 60;   // 1시간=112px (구글 캘린더 스케일)
     function setDailyView(v) {
       dailyView = v;
       document.getElementById('vt-list').classList.toggle('on', v === 'list');
@@ -898,13 +1016,16 @@
       for (var h = 0; h <= 24; h++) {
         var y = top + h * HRPX;
         html += '<div class="tg-line" style="top:' + y + 'px"></div>';
-        if (h < 24) html += '<div class="tg-hr" style="top:' + (y - 5) + 'px">' + h + '시</div>';
+        if (h < 24) {
+          html += '<div class="tg-line half" style="top:' + (y + HRPX / 2) + 'px"></div>';   // 30분 보조선
+          html += '<div class="tg-hr" style="top:' + (y - 5) + 'px">' + h + '시</div>';
+        }
       }
       if (dateStr === todayStr) html += '<div class="tg-now" style="top:' + (top + nowMinutes() * PXMIN) + 'px"></div>';
       var n = whoList.length;
       whoList.forEach(function (w, ci) {
-        var left = 'calc(40px + (100% - 66px)*' + (ci / n) + ' + 2px)';
-        var width = 'calc((100% - 66px)/' + n + ' - 4px)';
+        var left = 'calc(38px + (100% - 90px)*' + (ci / n) + ' + 2px)';
+        var width = 'calc((100% - 90px)/' + n + ' - 5px)';
         items.filter(function (r) { return r.who === w && !r.todo; }).forEach(function (r) {
           var s = toMin(r.start), e = toMin(r.end), cross = e <= s;
           var col = colorForCat(catOf(r));
