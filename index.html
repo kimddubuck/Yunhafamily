@@ -64,10 +64,10 @@
       #screen-daily .screen-title { grid-area: title; }
       #screen-daily .people { grid-area: people; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; margin: 0; gap: 5px; }
       #screen-daily .people .person { padding: 6px 0; font-size: 12.5px; border-width: 1px; }
-      #screen-daily .clock-card { grid-area: clock; position: sticky; top: 48px; }   /* 사람 선택 바 아래에 고정 */
+      #screen-daily .clock-card { grid-area: clock; position: sticky; top: 48px; margin-top: 0; }   /* 사람 선택 바 아래에 고정 */
       #screen-daily .clock-card svg { max-width: 470px; }
       #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; }
-      #screen-daily #daily-list { grid-area: list; }
+      #screen-daily #daily-list { grid-area: list; margin-top: 0; }
       #screen-daily #daily-list .item { padding: 15px 14px; }
       #screen-daily #daily-list .time { font-size: 15px; }
       #screen-daily #daily-list .title { font-size: 17px; font-weight: 600; }
@@ -75,13 +75,16 @@
       #screen-daily #daily-list .who { font-size: 15px; }
       #screen-daily #daily-grid { grid-area: grid; }
       #screen-daily #tg-tip { grid-area: tip; }
-      /* 오른쪽(목록/시간표)만 따로 스크롤 → 위 고정 툴바를 침범하지 않음 */
-      #screen-daily #daily-list, #screen-daily #daily-grid { max-height: calc(100dvh - 190px); overflow-y: auto; }
+      /* 오른쪽(목록/시간표)만 따로 스크롤 → 위·아래 끝선을 왼쪽 시계 카드와 맞춤 */
+      #screen-daily #daily-list, #screen-daily #daily-grid { max-height: calc(100dvh - 148px); overflow-y: auto; }
+      #screen-daily .clock-card { max-height: calc(100dvh - 148px); }
       /* 주간: 차트를 가로 폭에 맞춰 크게 */
       #week-chart svg { max-width: 100%; width: 100%; }
       #screen-week .clock-card { max-width: 960px; margin-left: auto; margin-right: auto; }
-      /* 월간: 달력을 화면 가득, 아래 날짜 상세(사람 선택·시계)는 숨김 */
-      .cal-cell { min-height: 96px; }
+      /* 월간: 달력을 화면 세로로 꽉 채우기 (아래 여백 제거) */
+      #screen-month.active { display: flex; flex-direction: column; height: calc(100dvh - 108px); }
+      #screen-month .cal-grid { flex: 1; grid-auto-rows: 1fr; }
+      .cal-cell { min-height: 0; }
       #day-detail { display: none; }
       /* 가로일 땐 헤더를 한 줄로 납작하게 (세로 공간 절약) */
       .header { padding: 8px 20px 6px; display: flex; align-items: center; gap: 10px; }
@@ -291,7 +294,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v55</div>
+      <div class="app-ver">v56</div>
     </header>
 
     <!-- 최근 수정 내역 -->
