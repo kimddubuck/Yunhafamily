@@ -55,7 +55,7 @@
     .list { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-top: 14px; }
     .item-wrap { position: relative; overflow: hidden; }
     .item-wrap:last-child .item { border-bottom: none; }
-    .item-del { position: absolute; inset: 0; background: #C0392B; color: #fff; display: flex; align-items: center; justify-content: flex-end; padding-right: 22px; font-size: 14px; font-weight: 600; gap: 6px; }
+    .item-del { position: absolute; top: 0; bottom: 0; right: 0; width: 84px; background: #C0392B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; gap: 4px; cursor: pointer; border-radius: 0 12px 12px 0; }
     .item { position: relative; background: var(--card); display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--line); touch-action: pan-y; }
     .item .time { font-size: 13px; color: var(--muted); width: 96px; flex-shrink: 0; }
     .item .ititle { font-size: 15px; flex: 1; }
@@ -112,6 +112,7 @@
     .hist-act { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: #fff; margin-right: 4px; }
     .hist-act.add { background: #6B8E5A; } .hist-act.edit { background: #3B7DBF; } .hist-act.del { background: #C0392B; }
     .hist-when { font-size: 12px; color: var(--muted); }
+    .hist-undo { margin-top: 8px; border: 1.5px solid var(--line); background: var(--card); color: var(--accent); border-radius: 999px; padding: 5px 12px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
     .modal.ow { z-index: 46; }
     .ow-list { margin-bottom: 10px; }
     .ow-item { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
@@ -120,6 +121,14 @@
     .ow-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
     .toast { position: fixed; left: 50%; bottom: 86px; transform: translateX(-50%) translateY(10px); background: #333; color: #fff; font-size: 13px; padding: 10px 16px; border-radius: 12px; z-index: 70; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; max-width: 86%; text-align: center; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .center-alert { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 90; pointer-events: none; opacity: 0; transition: opacity 0.18s; }
+    .center-alert.show { opacity: 1; }
+    .center-alert .ca-box { display: flex; align-items: center; gap: 10px; background: #C0392B; color: #fff; font-size: 15px; font-weight: 700; padding: 16px 22px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 82%; text-align: center; transform: scale(0.9); transition: transform 0.18s; }
+    .center-alert.show .ca-box { transform: scale(1); }
+    .center-alert .ca-ic { font-size: 20px; }
+    .reset-pins-btn { width: 100%; margin: 4px 0 10px; padding: 11px; border: 1.5px solid var(--line); background: var(--bg); color: var(--muted); border-radius: 12px; font-family: inherit; font-size: 13px; cursor: pointer; }
+    .month-title-row { display: flex; align-items: center; justify-content: space-between; }
+    .pin-off-mini { border: 1.5px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 5px 11px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 
     /* 시간표(격자) 보기 */
     .view-toggle { display: flex; gap: 6px; margin-top: 12px; }
@@ -128,15 +137,16 @@
     .view-toggle .bulk-btn { margin-left: auto; color: var(--accent); border-color: var(--accent); font-weight: 600; }
     .bulk-sum { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
     #daily-grid { background: var(--card); border: 1px solid var(--line); border-radius: 16px; margin-top: 14px; overflow: hidden; }
-    .tg-heads { display: flex; padding: 10px 8px 0 40px; }
+    .tg-heads { display: flex; padding: 10px 30px 0 44px; }
     .tg-heads span { flex: 1; text-align: center; font-size: 12px; font-weight: 700; }
     .tg-todos { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 10px 0; }
     .tg-todo { border: 1.5px solid; border-radius: 4px 12px 4px 4px; padding: 4px 11px; font-size: 12px; font-weight: 600; color: #5A4A0E; background: #FFF6C9; box-shadow: 1px 2px 3px rgba(0,0,0,0.12); cursor: pointer; }
     .tg { position: relative; margin: 0 6px 8px; }
-    .tg-line { position: absolute; left: 36px; right: 4px; border-top: 1px solid var(--line); }
-    .tg-hr { position: absolute; left: 0; width: 32px; text-align: right; font-size: 10px; color: var(--muted); }
-    .tg-now { position: absolute; left: 36px; right: 4px; border-top: 2px solid #C0392B; z-index: 6; pointer-events: none; }
+    .tg-line { position: absolute; left: 40px; right: 26px; border-top: 1px solid var(--line); }
+    .tg-hr { position: absolute; left: 0; width: 34px; text-align: right; font-size: 10px; color: var(--muted); }
+    .tg-now { position: absolute; left: 40px; right: 26px; border-top: 2px solid #C0392B; z-index: 6; pointer-events: none; }
     .tgb { position: absolute; border-radius: 8px; color: #fff; padding: 3px 7px 3px 7px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.18); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+    .tg-scrollstrip { position: absolute; top: 0; bottom: 0; right: 0; width: 26px; z-index: 2; background: repeating-linear-gradient(180deg, transparent 0 6px, rgba(0,0,0,0.05) 6px 8px); border-radius: 6px; pointer-events: none; }
     .tgb .t { font-size: 11px; font-weight: 700; line-height: 1.3; }
     .tgb .tm { font-size: 10px; opacity: 0.9; }
     .tgb.drag { opacity: 0.9; box-shadow: 0 8px 18px rgba(0,0,0,0.3); z-index: 20; }
@@ -232,6 +242,48 @@
       </div>
     </div>
 
+    <!-- 되돌리기 확인 -->
+    <div class="modal ow" id="undo-modal">
+      <div class="sheet">
+        <div class="sheet-title">↩️ 되돌릴까요?</div>
+        <div class="ow-note" id="undo-text" style="font-size:14px;color:var(--ink)"></div>
+        <div class="ow-note">이 시점 이후의 변경은 취소돼요. (되돌리기는 이 폰에서 한 최근 변경만 가능해요)</div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeUndo()">취소</button><button class="btn btn-save" onclick="confirmUndo()">되돌리기</button></div>
+      </div>
+    </div>
+
+    <!-- 일정 삭제 확인 -->
+    <div class="modal ow" id="del-modal">
+      <div class="sheet">
+        <div class="sheet-title">🗑 삭제할까요?</div>
+        <div class="ow-note" id="del-text" style="font-size:14px;color:var(--ink)"></div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeDelConfirm()">취소</button><button class="btn btn-save" style="background:#C0392B" onclick="confirmDeleteItem()">삭제</button></div>
+      </div>
+    </div>
+
+    <!-- 월간 표시 초기화 확인 -->
+    <div class="modal ow" id="pinreset-modal">
+      <div class="sheet">
+        <div class="sheet-title">⚠️ 월간 표시를 초기화할까요?</div>
+        <div class="ow-note" id="pinreset-text" style="font-size:14px;color:var(--ink)"></div>
+        <div class="ow-note">모든 일정의 <b>월간 달력 표시 체크가 해제</b>돼요. 일정 자체는 그대로 남아요. 📝 메모는 영향 없어요. 이 작업은 <b>되돌릴 수 없어요.</b></div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closePinReset()">취소</button><button class="btn btn-save" style="background:#C0392B" onclick="confirmResetPins()">네, 초기화</button></div>
+      </div>
+    </div>
+
+    <!-- 엑셀 가져오기 -->
+    <div class="modal" id="xls-modal">
+      <div class="sheet">
+        <div class="sheet-title">📄 엑셀에서 하루 일과 가져오기</div>
+        <div class="ow-note">양식: 1행에 <b>시간 | 아빠 | 엄마 | 딸</b> (이름 상필·나영·윤하도 인식), 아래로 <b>05:00 ~ 05:30</b>처럼 30분 칸이에요. 같은 이름이 이어지면 한 일정으로 합치고, 빈칸·'자유'는 건너뛰어요.</div>
+        <button class="btn btn-cancel" style="width:100%;margin-bottom:10px" onclick="downloadXlsTemplate()">⬇️ 빈 양식 내려받기</button>
+        <input type="file" id="xls-file" accept=".xlsx,.xls" onchange="handleXlsFile(this)" style="width:100%;font-size:14px;margin-bottom:10px" />
+        <div class="ow-note" id="xls-preview"></div>
+        <p class="form-msg" id="xls-msg"></p>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeXls()">취소</button><button class="btn btn-save" id="xls-apply" onclick="applyXls()" disabled>오늘에 적용</button></div>
+      </div>
+    </div>
+
     <!-- 오늘 하루 일과 일괄 적용 -->
     <div class="modal" id="bulk-modal">
       <div class="sheet">
@@ -290,7 +342,7 @@
           <button class="person"        data-person="child" onclick="pickPerson(this)">딸</button>
         </div>
         <div class="clock-card"><div id="daily-clock"></div><div class="legend" id="daily-legend"></div></div>
-        <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" onclick="openBulk()">일괄 적용</button></div>
+        <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" style="margin-left:auto" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" style="margin-left:6px" onclick="openBulk()">일괄 적용</button></div>
         <div class="list" id="daily-list"></div>
         <div id="daily-grid" style="display:none"></div>
         <div class="tg-tip" id="tg-tip"></div>
@@ -309,7 +361,7 @@
       </section>
 
       <section class="screen" id="screen-month">
-        <div class="screen-title">월간 · 달력</div>
+        <div class="screen-title month-title-row">월간 · 달력<button class="pin-off-mini" onclick="askResetPins()">📅 표시 초기화</button></div>
         <div class="cal-head">
           <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
           <div class="cal-title" id="cal-title"></div>
@@ -485,9 +537,40 @@
     var changeLog = [];    // 최근 수정 내역 (두 폰 공유) — 이름을 history로 쓰면 브라우저 내장과 충돌!
     var deviceWho = '';    // 이 폰이 누구인지 (아빠/엄마) — 이 폰에만 저장
     try { deviceWho = localStorage.getItem('family_device_who') || ''; } catch (e) {}
+    // 되돌리기용: 지금 상태를 통째로 복사 (변경 직전 모습을 붙여두기 위함)
+    function snapState() {
+      return JSON.stringify({ base: schedule, exceptions: exceptions, hides: hides, categories: categories });
+    }
+    var lastSnapshot = null;   // 직전 변경 뒤의 상태 = 다음 변경의 '되돌릴 지점'
     function logChange(act, title, whenDesc, who) {
-      changeLog.unshift({ t: Date.now(), who: who || '', act: act, title: title, when: whenDesc || '' });
+      var entry = { t: Date.now(), who: who || '', act: act, title: title, when: whenDesc || '', undo: lastSnapshot };
+      changeLog.unshift(entry);
       if (changeLog.length > 30) changeLog.length = 30;   // 최근 30건만 보관
+      lastSnapshot = snapState();   // 이 변경 이후 상태를 다음 되돌리기 기준으로
+    }
+    function undoTo(idx) {
+      var entry = changeLog[idx];
+      if (!entry || !entry.undo) { showToast('되돌릴 수 있는 시점이 아니에요'); return; }
+      pendingUndo = idx;
+      document.getElementById('undo-text').innerHTML = '<b>' + escapeHtml((entry.act) + ' · ' + entry.title) + '</b><br>이 변경 <b>직전 상태</b>로 되돌릴까요? 이후에 한 변경들도 함께 취소돼요.';
+      document.getElementById('undo-modal').classList.add('open');
+    }
+    var pendingUndo = null;
+    function closeUndo() { document.getElementById('undo-modal').classList.remove('open'); pendingUndo = null; }
+    function confirmUndo() {
+      var idx = pendingUndo; closeUndo();
+      var entry = changeLog[idx];
+      if (!entry || !entry.undo) return;
+      try {
+        var st = JSON.parse(entry.undo);
+        schedule = st.base || []; exceptions = st.exceptions || []; hides = st.hides || [];
+        if (st.categories && st.categories.length) { categories = st.categories; normalizeCats(); rebuildCatColors(); buildCatButtons(); }
+      } catch (e) { showToast('되돌리기에 실패했어요'); return; }
+      changeLog = changeLog.slice(idx + 1);   // 되돌린 변경 및 그 이후(목록상 위쪽) 기록은 제거
+      lastSnapshot = snapState();
+      assignIds(); saveAll(); refreshAll();
+      renderHistory();
+      showToast('↩️ 되돌렸어요');
     }
 
     var people = {
@@ -650,17 +733,12 @@
     function itemHTML(row, showWho, dateStr) {
       var color = people[row.who].color;
       var isNow = (dateStr === todayStr) && withinNow(row);
-      var badge = '';
-      if (row.scope && !row.bulk) {   // 일괄 적용으로 깔린 일정엔 배지 생략
-        var edName = row.editor ? people[row.editor].name : '미지정';
-        var mine = row.editor && row.editor === deviceWho;
-        badge = '<span class="badge">수정</span><span class="edby' + (mine ? ' mine' : '') + '">' + (mine ? '✓ ' : '') + edName + '</span>';
-      }
+      var badge = '';   // 「수정」 배지는 표시하지 않음 (수정내역에서 확인)
       var nowBadge = isNow ? '<span class="nowbadge">지금</span>' : '';
       var whoTag = showWho ? '<span class="who" style="color:' + color + '">' + people[row.who].name + '</span>' : '';
       var timeCell = row.todo ? '<span class="time"><span class="todo-tag">📝 메모</span></span>' : '<span class="time">' + row.start + ' – ' + row.end + '</span>';
       return '<div class="item-wrap" data-id="' + row.id + '" data-date="' + dateStr + '">' +
-               '<div class="item-del">🗑 삭제</div>' +
+               '<div class="item-del" onclick="askDeleteItem(event,' + row.id + ',\'' + dateStr + '\')">🗑 삭제</div>' +
                '<div class="item' + (isNow ? ' now' : '') + (row.todo ? ' todo' : '') + '" style="border-left-color:' + color + '" onclick="itemTap(event,' + row.id + ',\'' + dateStr + '\')">' +
                  timeCell +
                  '<span class="ititle">' + row.title + ' ' + badge + nowBadge + '</span>' + whoTag +
@@ -675,10 +753,30 @@
              rows.map(function (r) { return itemHTML(r, who === 'all', dateStr); }).join('');
     }
 
-    /* ===== 왼쪽으로 밀어서 그날만 삭제 ===== */
+    /* ===== 왼쪽으로 밀어서 삭제 버튼 열기 → 눌러야 확인 ===== */
     function itemTap(ev, id, dateStr) {
       if (Date.now() - (window.__swipeEnd || 0) < 300) return;   // 방금 민 거면 열지 않음
+      if (closeOpenSwipe()) return;                              // 열린 삭제 버튼이 있으면 먼저 닫기만
       openEdit(id, dateStr);
+    }
+    var openSwipeItem = null;   // 지금 삭제 버튼이 열려있는 .item
+    function closeOpenSwipe() {
+      if (openSwipeItem) { openSwipeItem.style.transition = 'transform 0.2s'; openSwipeItem.style.transform = ''; openSwipeItem = null; return true; }
+      return false;
+    }
+    var pendingDel = null;
+    function askDeleteItem(ev, id, dateStr) {
+      if (ev) { ev.stopPropagation(); }
+      var row = schedule.concat(exceptions).filter(function (r) { return r.id === id; })[0];
+      if (!row) return;
+      pendingDel = { id: id, date: dateStr };
+      document.getElementById('del-text').innerHTML = '<b>' + escapeHtml(people[row.who].name + ' ' + row.title) + '</b>' + (row.todo ? ' (메모)' : '') + '<br>' + dateStr.slice(5).replace('-', '월 ') + '일, 이 날짜에서만 삭제할까요?';
+      document.getElementById('del-modal').classList.add('open');
+    }
+    function closeDelConfirm() { document.getElementById('del-modal').classList.remove('open'); pendingDel = null; }
+    function confirmDeleteItem() {
+      if (pendingDel) deleteItemForDate(pendingDel.id, pendingDel.date);
+      document.getElementById('del-modal').classList.remove('open'); pendingDel = null; openSwipeItem = null;
     }
     function deleteItemForDate(id, dateStr) {
       var row = schedule.concat(exceptions).filter(function (r) { return r.id === id; })[0];
@@ -690,34 +788,37 @@
       saveAll(); refreshAll();
     }
     (function () {
-      var sw = null;
+      var sw = null, OPEN = 84;
       document.addEventListener('touchstart', function (e) {
         var wrap = e.target.closest ? e.target.closest('.item-wrap') : null;
+        // 다른 항목이 열려있는데 딴 곳을 누르면 닫기
+        if (openSwipeItem && (!wrap || wrap.querySelector('.item') !== openSwipeItem)) closeOpenSwipe();
         if (!wrap) { sw = null; return; }
-        sw = { wrap: wrap, item: wrap.querySelector('.item'), x0: e.touches[0].clientX, y0: e.touches[0].clientY, dx: 0, moved: false };
+        var item = wrap.querySelector('.item');
+        sw = { wrap: wrap, item: item, x0: e.touches[0].clientX, y0: e.touches[0].clientY, dx: 0, moved: false, base: (openSwipeItem === item ? -OPEN : 0) };
       }, { passive: true });
       document.addEventListener('touchmove', function (e) {
         if (!sw) return;
         var dx = e.touches[0].clientX - sw.x0, dy = e.touches[0].clientY - sw.y0;
         if (!sw.moved && Math.abs(dy) > Math.abs(dx)) { sw = null; return; }   // 세로 스크롤이면 취소
-        if (dx > 0) dx = 0;
-        if (dx < -120) dx = -120;
-        sw.dx = dx; if (Math.abs(dx) > 6) sw.moved = true;
+        var eff = sw.base + dx;                          // 이미 열린 상태면 거기서 이어서
+        if (eff > 0) eff = 0;
+        if (eff < -OPEN) eff = -OPEN;                    // 삭제 버튼 너비까지만 (더 밀려도 안 넘어감)
+        sw.dx = dx; sw.eff = eff; if (Math.abs(dx) > 6) sw.moved = true;
         sw.item.style.transition = 'none';
-        sw.item.style.transform = 'translateX(' + dx + 'px)';
+        sw.item.style.transform = 'translateX(' + eff + 'px)';
         if (sw.moved && e.cancelable) e.preventDefault();
       }, { passive: false });
       document.addEventListener('touchend', function () {
         if (!sw) return;
-        var item = sw.item, wrap = sw.wrap;
+        var item = sw.item;
         item.style.transition = 'transform 0.2s';
         if (sw.moved) window.__swipeEnd = Date.now();
-        if (sw.dx < -70) {                          // 충분히 밀면 삭제
-          item.style.transform = 'translateX(-110%)';
-          var id = Number(wrap.dataset.id), date = wrap.dataset.date;
-          setTimeout(function () { deleteItemForDate(id, date); }, 170);
+        if ((sw.eff !== undefined ? sw.eff : sw.base) <= -OPEN / 2) {   // 절반 넘게 열면 → 열림 상태로 고정 (삭제 아님!)
+          item.style.transform = 'translateX(-' + OPEN + 'px)';
+          openSwipeItem = item;
         } else {
-          item.style.transform = '';                // 덜 밀면 원위치
+          item.style.transform = ''; if (openSwipeItem === item) openSwipeItem = null;   // 덜 열면 닫기
         }
         sw = null;
       }, { passive: true });
@@ -754,7 +855,7 @@
       var todoBar = tds.length ? '<div class="tg-todos">' + tds.map(function (r) {
         return '<span class="tg-todo" style="border-color:' + people[r.who].color + '" onclick="openEdit(' + r.id + ',\'' + dateStr + '\')">📝 ' + escapeHtml(r.title) + '</span>';
       }).join('') + '</div>' : '';
-      var html = heads + todoBar + '<div class="tg" style="height:' + (H + top + 10) + 'px">';
+      var html = heads + todoBar + '<div class="tg" style="height:' + (H + top + 10) + 'px"><div class="tg-scrollstrip"></div>';
       for (var h = 0; h <= 24; h++) {
         var y = top + h * HRPX;
         html += '<div class="tg-line" style="top:' + y + 'px"></div>';
@@ -763,8 +864,8 @@
       if (dateStr === todayStr) html += '<div class="tg-now" style="top:' + (top + nowMinutes() * PXMIN) + 'px"></div>';
       var n = whoList.length;
       whoList.forEach(function (w, ci) {
-        var left = 'calc(36px + (100% - 42px)*' + (ci / n) + ' + 2px)';
-        var width = 'calc((100% - 42px)/' + n + ' - 4px)';
+        var left = 'calc(40px + (100% - 66px)*' + (ci / n) + ' + 2px)';
+        var width = 'calc((100% - 66px)/' + n + ' - 4px)';
         items.filter(function (r) { return r.who === w && !r.todo; }).forEach(function (r) {
           var s = toMin(r.start), e = toMin(r.end), cross = e <= s;
           var col = colorForCat(catOf(r));
@@ -1090,7 +1191,8 @@
 
     // 저장 : 연결돼 있으면 공동 저장소로, 그리고 폰 안에도 백업
     function saveAll() {
-      var data = { base: schedule, exceptions: exceptions, hides: hides, categories: categories, history: changeLog };
+      var lightLog = changeLog.map(function (h) { return { t: h.t, who: h.who, act: h.act, title: h.title, when: h.when }; });
+      var data = { base: schedule, exceptions: exceptions, hides: hides, categories: categories, history: lightLog };
       if (firebaseOn && dbRef && !applyingRemote) { try { dbRef.set(data); } catch (e) {} }
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
     }
@@ -1112,7 +1214,7 @@
           hides = data.hides || [];
           if (data.categories && data.categories.length) { categories = data.categories; normalizeCats(); rebuildCatColors(); buildCatButtons(); }
           if (data.history) changeLog = data.history;   // 있을 때만 갱신(옛 버전이 덮어써 지우는 것 방지)
-          assignIds(); refreshAll();
+          assignIds(); lastSnapshot = snapState(); refreshAll();
           applyingRemote = false;
         });
       } catch (e) { firebaseOn = false; }
@@ -1221,8 +1323,8 @@
     function saveCatPanel() {
       var name = document.getElementById('cat-new-name').value.trim().replace(/['"]/g, '');
       var msg = document.getElementById('form-msg');
-      if (!name) { msg.textContent = '종류 이름을 적어주세요.'; return; }
-      if (categories.some(function (c) { return c.name === name && c.key !== editingCatKey; })) { msg.textContent = '이미 있는 이름이에요.'; return; }
+      if (!name) { formError(msg, '종류 이름을 적어주세요.'); return; }
+      if (categories.some(function (c) { return c.name === name && c.key !== editingCatKey; })) { formError(msg, '이미 있는 이름이에요.'); return; }
       if (editingCatKey) {                       // 이름·색 변경 (key 그대로 → 연결 안 깨짐)
         var k = editingCatKey, cat = categories.filter(function (c) { return c.key === k; })[0];
         cat.name = name; cat.color = newCatColor;
@@ -1241,9 +1343,11 @@
       rebuildCatColors(); saveAll(); buildCatButtons(); refreshAll();
     }
 
-    function pickScope(btn) {
+    function pickScope(btn, keepAnchor) {
       document.querySelectorAll('#scope-pick .scope').forEach(function (p) { p.classList.remove('active'); });
       btn.classList.add('active'); formScope = btn.dataset.scope;
+      // 사용자가 직접 범위를 바꾸면 기준 날짜를 '지금 보고 있는 날'로 되돌림 (수정 중이면 그 날짜)
+      if (!keepAnchor) { formAnchor = editingItem ? editContextDate : (selectedDate ? ymdOf(monthState.y, monthState.m, selectedDate) : todayStr); if (formScope === 'nthwd') { formNwDay = null; } }
       var showCal = (formScope === 'dates');
       document.getElementById('minical').style.display = showCal ? '' : 'none';
       document.getElementById('wd-field').style.display = (formScope === 'weekdays') ? '' : 'none';
@@ -1388,13 +1492,21 @@
       document.getElementById('f-pin').checked = !!row.pin;
       pickEditor(row.editor || deviceWho);
       setCat(row.cat || '');
-      formDays = (row.scope === 'weekdays' && row.days) ? row.days.slice() : [];
-      document.getElementById('wd-until').value = (row.scope === 'weekdays' && row.until) ? row.until : '';
-      if (row.scope === 'nthwd') { formNth = row.nth; formNwDay = row.day; } else { formNth = 1; formNwDay = null; }
-      document.getElementById('nw-until').value = (row.scope === 'nthwd' && row.until) ? row.until : '';
-      if (row.scope === 'weekdays') pickScope(document.querySelector('#scope-pick .scope[data-scope="weekdays"]'));
-      else if (row.scope === 'nthwd') pickScope(document.querySelector('#scope-pick .scope[data-scope="nthwd"]'));
-      else pickScope(document.querySelector('#scope-pick .scope[data-scope="day"]'));  // 기본: 이 날짜만
+      // 반복 일정은 '원래 범위'로 열기 → 여기서 pin 풀거나 수정하면 반복 전체에 적용돼요
+      var S = row.scope;                     // 기본(매일) 일정은 scope가 없음
+      formDays = (S === 'weekdays' && row.days) ? row.days.slice() : [];
+      if (S === 'nthwd') { formNth = row.nth; formNwDay = row.day; } else { formNth = 1; formNwDay = null; }
+      document.getElementById('wd-until').value = (S === 'weekdays' && row.until) ? row.until : '';
+      document.getElementById('nw-until').value = (S === 'nthwd' && row.until) ? row.until : '';
+      pickedDates = (S === 'dates' && row.dates) ? row.dates.slice() : [];
+      // 각 범위가 원래대로 재구성되도록 기준 날짜(anchor)를 맞춰줌
+      if (S === 'weekFrom') formAnchor = row.date;
+      else if (S === 'month') formAnchor = row.ym + '-01';
+      else if (S === 'year') formAnchor = row.y + '-01-01';
+      else if (S === 'weekdays' || S === 'nthwd') formAnchor = row.from || dateStr;
+      else formAnchor = dateStr;
+      if (!S) pickScope(document.querySelector('#scope-pick .scope[data-scope="base"]'), true);                 // 매일(기본 루틴)
+      else pickScope(document.querySelector('#scope-pick .scope[data-scope="' + S + '"]'), true);               // 그 외 원래 범위
       document.getElementById('modal').classList.add('open');
     }
     // 예외에서 특정 날짜 D 만 떼어내기
@@ -1463,16 +1575,175 @@
     function renderHistory() {
       var el = document.getElementById('hist-list');
       if (!changeLog.length) { el.innerHTML = '<div class="hist-empty">아직 수정 내역이 없어요.</div>'; return; }
-      el.innerHTML = changeLog.map(function (h) {
+      el.innerHTML = changeLog.map(function (h, i) {
         var mine = h.who && h.who === deviceWho;
         var who = h.who ? people[h.who].name : '미지정';
         var actCls = h.act === '삭제' ? 'del' : h.act === '추가' ? 'add' : 'edit';
+        var undoBtn = h.undo ? '<button class="hist-undo" onclick="undoTo(' + i + ')">↩️ 되돌리기</button>' : '';
         return '<div class="hist-item"><div class="hist-top"><span class="hist-who' + (mine ? ' mine' : '') + '">' + (mine ? '✓ ' : '') + who + '</span><span class="hist-time">' + fmtHistTime(h.t) + '</span></div>' +
-               '<div class="hist-body"><span class="hist-act ' + actCls + '">' + h.act + '</span> ' + escapeHtml(h.title) + (h.when ? ' <span class="hist-when">(' + h.when + ')</span>' : '') + '</div></div>';
+               '<div class="hist-body"><span class="hist-act ' + actCls + '">' + h.act + '</span> ' + escapeHtml(h.title) + (h.when ? ' <span class="hist-when">(' + h.when + ')</span>' : '') + '</div>' + undoBtn + '</div>';
       }).join('');
     }
     function openHistory() { document.getElementById('hist-modal').classList.add('open'); renderHistory(); }
     function closeHistory() { document.getElementById('hist-modal').classList.remove('open'); }
+    function countPins() {
+      var n = 0;
+      schedule.forEach(function (r) { if (r.pin && !r.todo) n++; });
+      exceptions.forEach(function (r) { if (r.pin && !r.todo) n++; });
+      return n;
+    }
+    function askResetPins() {
+      var n = countPins();
+      if (!n) { showToast('월간에 표시된 일정이 없어요'); return; }
+      document.getElementById('pinreset-text').innerHTML = '지금 월간 달력에 표시된 일정 <b>' + n + '개</b>의 표시를 모두 해제해요.';
+      document.getElementById('pinreset-modal').classList.add('open');
+    }
+    function closePinReset() { document.getElementById('pinreset-modal').classList.remove('open'); }
+    function confirmResetPins() {
+      var n = countPins();
+      schedule.forEach(function (r) { if (r.pin && !r.todo) r.pin = false; });
+      exceptions.forEach(function (r) { if (r.pin && !r.todo) r.pin = false; });
+      logChange('수정', '월간 표시 초기화 (' + n + '개)', '전체', deviceWho);
+      saveAll(); refreshAll();
+      closePinReset(); closeHistory();
+      showToast('✅ 월간 표시 ' + n + '개를 초기화했어요');
+    }
+
+    /* ===== 엑셀에서 하루 일과 가져오기 ===== */
+    var xlsParsed = null;
+    function ensureXLSX(cb) {
+      if (window.XLSX) return cb();
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = cb;
+      s.onerror = function () { formError(document.getElementById('xls-msg'), '엑셀 처리 도구를 불러오지 못했어요. 인터넷 연결을 확인해주세요.'); };
+      document.head.appendChild(s);
+    }
+    function openXls() {
+      xlsParsed = null;
+      document.getElementById('xls-file').value = '';
+      document.getElementById('xls-preview').innerHTML = '';
+      document.getElementById('xls-msg').textContent = '';
+      document.getElementById('xls-apply').disabled = true;
+      document.getElementById('xls-modal').classList.add('open');
+      ensureXLSX(function () {});   // 미리 불러두기
+    }
+    function closeXls() { document.getElementById('xls-modal').classList.remove('open'); }
+    function xlsMapWho(h) {
+      var s = String(h || '');
+      if (s.indexOf('아빠') >= 0 || s.indexOf('상필') >= 0) return 'dad';
+      if (s.indexOf('엄마') >= 0 || s.indexOf('나영') >= 0) return 'mom';
+      if (s.indexOf('딸') >= 0 || s.indexOf('윤하') >= 0 || s.indexOf('아이') >= 0 || s.indexOf('아기') >= 0) return 'child';
+      return null;
+    }
+    function xlsParseTime(cell) {   // '05:00 ~ 05:30' / '05:00~05:30' / '05:00' → {s,e}
+      var t = String(cell || '');
+      var m = t.match(/(\d{1,2}):(\d{2})\s*[~\-–]\s*(\d{1,2}):(\d{2})/);
+      if (m) return { s: pad2(m[1]) + ':' + m[2], e: pad2(m[3] % 24) + ':' + m[4] };
+      m = t.match(/(\d{1,2}):(\d{2})/);
+      if (m) { var sm = (+m[1]) * 60 + (+m[2]); return { s: toHM(sm), e: toHM(sm + 30) }; }
+      return null;
+    }
+    function pad2(n) { return ('0' + n).slice(-2); }
+    function handleXlsFile(input) {
+      var f = input.files && input.files[0];
+      if (!f) return;
+      ensureXLSX(function () {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+            var ws = wb.Sheets[wb.SheetNames[0]];
+            var rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+            parseXlsRows(rows);
+          } catch (err) { formError(document.getElementById('xls-msg'), '파일을 읽지 못했어요: ' + err.message); }
+        };
+        reader.readAsArrayBuffer(f);
+      });
+    }
+    function parseXlsRows(rows) {
+      // 헤더 행 찾기: '시간'이 있는 행
+      var hi = -1;
+      for (var i = 0; i < Math.min(rows.length, 5); i++) {
+        if ((rows[i] || []).some(function (c) { return String(c || '').indexOf('시간') >= 0; })) { hi = i; break; }
+      }
+      if (hi < 0) { formError(document.getElementById('xls-msg'), "1행에 '시간' 제목이 있어야 해요. 양식을 확인해주세요."); return; }
+      var head = rows[hi], timeCol = -1, whoCols = [];
+      head.forEach(function (c, ci) {
+        if (String(c || '').indexOf('시간') >= 0 && timeCol < 0) timeCol = ci;
+        else { var w = xlsMapWho(c); if (w) whoCols.push({ col: ci, who: w, name: String(c) }); }
+      });
+      if (!whoCols.length) { formError(document.getElementById('xls-msg'), '아빠/엄마/딸(또는 상필/나영/윤하) 열을 찾지 못했어요.'); return; }
+      // 사람별 30분 칸 모으기
+      var slots = { dad: [], mom: [], child: [] }, skipped = 0;
+      for (var r = hi + 1; r < rows.length; r++) {
+        var tm = xlsParseTime((rows[r] || [])[timeCol]);
+        if (!tm) { if ((rows[r] || []).join('')) skipped++; continue; }
+        whoCols.forEach(function (wc) {
+          var title = String((rows[r] || [])[wc.col] || '').trim();
+          if (!title || title === '-' || title === '자유' || title.toLowerCase() === 'x') return;
+          slots[wc.who].push({ s: tm.s, e: tm.e, title: title });
+        });
+      }
+      // 이어지는 같은 이름 합치기 + 자정 넘김 이어붙이기
+      var events = { dad: [], mom: [], child: [] }, total = 0;
+      ['dad', 'mom', 'child'].forEach(function (w) {
+        var arr = slots[w].slice().sort(function (a, b) { return toMin(a.s) - toMin(b.s); });
+        var out = [];
+        arr.forEach(function (sl) {
+          var last = out[out.length - 1];
+          if (last && last.title === sl.title && last.e === sl.s) last.e = sl.e;
+          else out.push({ s: sl.s, e: sl.e, title: sl.title });
+        });
+        if (out.length > 1) {   // 밤 취침(…–00:00)과 첫 새벽 조각(같은 이름) 합치기
+          var f = out[0], l = out[out.length - 1];
+          if (f.title === l.title && l.e === '00:00') { f.s = l.s; out.pop(); }
+        }
+        events[w] = out; total += out.length;
+      });
+      if (!total) { formError(document.getElementById('xls-msg'), '가져올 일정이 없어요. 내용을 확인해주세요.'); return; }
+      xlsParsed = events;
+      var sum = ['dad', 'mom', 'child'].filter(function (w) { return events[w].length; })
+        .map(function (w) { return people[w].name + ' ' + events[w].length + '개'; }).join(' · ');
+      document.getElementById('xls-preview').innerHTML = '<b>변환 결과:</b> ' + sum + (skipped ? ' <span style="color:var(--muted)">(못 읽은 행 ' + skipped + '개 건너뜀)</span>' : '') +
+        '<br>「오늘에 적용」을 누르면 <b>오늘 하루</b>가 이 내용으로 바뀌어요. 반복하려면 이어서 <b>일괄 적용</b>을 쓰세요.';
+      document.getElementById('xls-msg').textContent = '';
+      document.getElementById('xls-apply').disabled = false;
+    }
+    function applyXls() {
+      if (!xlsParsed) return;
+      var persons = ['dad', 'mom', 'child'].filter(function (w) { return xlsParsed[w].length; });
+      // 오늘 그 사람들 일정 전부 치우기 (기본은 그날만 가림, 예외는 그날만 제외)
+      persons.forEach(function (w) {
+        itemsForDate(todayStr).filter(function (r) { return r.who === w; }).forEach(function (r) {
+          if (isBaseItem(r)) { if (!hiddenOn(r.id, todayStr)) hides.push({ baseId: r.id, scope: 'day', date: todayStr }); }
+          else if (r.scope === 'day') exceptions = exceptions.filter(function (x) { return x.id !== r.id; });
+          else detachDate(r, todayStr);
+        });
+      });
+      // 엑셀 내용을 오늘 하루 일정으로 넣기
+      var cnt = 0;
+      persons.forEach(function (w) {
+        xlsParsed[w].forEach(function (ev) {
+          exceptions.push(newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: '', editor: deviceWho }, { scope: 'day', date: todayStr }));
+          cnt++;
+        });
+      });
+      logChange('일괄', '엑셀 가져오기 (' + persons.map(function (w) { return people[w].name; }).join('·') + ' ' + cnt + '개)', '이 날짜만', deviceWho);
+      saveAll(); refreshAll(); closeXls();
+      showToast('✅ 엑셀 일과 ' + cnt + '개를 오늘에 적용했어요');
+    }
+    function downloadXlsTemplate() {
+      ensureXLSX(function () {
+        var aoa = [['시간', '아빠', '엄마', '딸']];
+        for (var m = 5 * 60; m < 24 * 60; m += 30) aoa.push([toHM(m) + ' ~ ' + (m + 30 === 1440 ? '24:00' : toHM(m + 30)), '', '', '']);
+        var ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws['!cols'] = [{ wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '시간표');
+        XLSX.writeFile(wb, '가족스케줄_양식.xlsx');
+      });
+    }
 
     /* ===== 오늘 일과표 일괄 적용 ===== */
     var bulkScope = 'weekFrom', bulkDays = [], bulkWho = [];
@@ -1559,11 +1830,11 @@
     }
     function applyBulk() {   // 1차: 검증 후 경고 확인창
       var msg = document.getElementById('bulk-msg');
-      if (!bulkWho.length) { msg.textContent = '누구의 일과를 복사할지 골라주세요.'; return; }
-      if (bulkScope === 'weekdays' && !bulkDays.length) { msg.textContent = '반복할 요일을 하나 이상 골라주세요.'; return; }
-      if (bulkScope === 'nthwd' && bulkNwDay === null) { msg.textContent = '몇째 주 무슨 요일인지 골라주세요.'; return; }
+      if (!bulkWho.length) { formError(msg, '누구의 일과를 복사할지 골라주세요.'); return; }
+      if (bulkScope === 'weekdays' && !bulkDays.length) { formError(msg, '반복할 요일을 하나 이상 골라주세요.'); return; }
+      if (bulkScope === 'nthwd' && bulkNwDay === null) { formError(msg, '몇째 주 무슨 요일인지 골라주세요.'); return; }
       var cnt = itemsForDate(todayStr).filter(function (r) { return bulkWho.indexOf(r.who) >= 0; }).length;
-      if (!cnt) { msg.textContent = '복사할 일정이 없어요.'; return; }
+      if (!cnt) { formError(msg, '복사할 일정이 없어요.'); return; }
       var label = { weekFrom: '이 주', month: '이 달', year: '올해', weekdays: '요일 반복', nthwd: '매월 몇째 주', base: '매일' }[bulkScope];
       var names = bulkWho.map(function (w) { return people[w].name; }).join('·');
       document.getElementById('bulkc-text').innerHTML = '<b>' + names + '</b>의 <b>' + label + '</b> 루틴이 오늘 모습(일정 ' + cnt + '개)으로 바뀌어요.<br>' + document.getElementById('bulk-hint').textContent;
@@ -1578,13 +1849,20 @@
       // 1) 오늘 모습 스냅샷 (정리하기 전에 먼저 떠놓기)
       var snap = itemsForDate(todayStr).filter(function (r) { return persons.indexOf(r.who) >= 0; })
         .map(function (r) { return { who: r.who, start: r.start, end: r.end, title: r.title, pin: !!r.pin, cat: r.cat || '', editor: deviceWho }; });
-      if (!snap.length) { msg.textContent = '복사할 일정이 없어요.'; return; }
+      if (!snap.length) { formError(msg, '복사할 일정이 없어요.'); return; }
       // 자동 정리 불가 조합 미리 확인 (이전 일괄분 중 끝없는 요일반복)
       if (sf.scope !== 'base' && !finiteScope(sf)) {
         var bad = exceptions.some(function (E) { return persons.indexOf(E.who) >= 0 && E.bulk && (E.scope === 'weekdays' || E.scope === 'nthwd') && !E.until; });
-        if (bad) { msg.textContent = '이전에 일괄 적용된 끝없는 요일반복이 있어요. 먼저 정리해주세요.'; return; }
+        if (bad) { formError(msg, '이전에 일괄 적용된 끝없는 요일반복이 있어요. 먼저 정리해주세요.'); return; }
       }
       // 2) 그 범위의 기존 루틴 정리 — 개별 등록/수정 일정(비-일괄)은 보존!
+      // 먼저, 이 사람들의 '이전 일괄분'(bulk 예외 + bulk 가림)을 전부 제거해 중복을 막음
+      exceptions = exceptions.filter(function (E) { return !(persons.indexOf(E.who) >= 0 && E.bulk); });
+      hides = hides.filter(function (h) {
+        if (!h.bulk) return true;
+        var b = schedule.filter(function (r) { return r.id === h.baseId; })[0];
+        return !(b && persons.indexOf(b.who) >= 0);
+      });
       var added = [];   // 이번에 새로 깐 루틴들
       if (sf.scope === 'base') {
         schedule = schedule.filter(function (r) { return persons.indexOf(r.who) < 0; });   // 그 사람들 기본 루틴 교체
@@ -1593,8 +1871,7 @@
         exceptions = exceptions.filter(function (E) { return !(persons.indexOf(E.who) >= 0 && E.scope === 'day' && E.date === todayStr); });
         hides = hides.filter(function (h) { return !(h.scope === 'day' && h.date === todayStr); });
       } else {
-        schedule.forEach(function (b) { if (persons.indexOf(b.who) >= 0) hides.push(mergeInto({ baseId: b.id }, bulkSf())); });   // 범위 동안 기본 가리기
-        exceptions.slice().forEach(function (E) { if (persons.indexOf(E.who) >= 0 && E.bulk) resolveOne(E, sf, 0, 1440); });      // 이전 '일괄'분만 정리, 개별 일정은 그대로
+        schedule.forEach(function (b) { if (persons.indexOf(b.who) >= 0) { var hh = mergeInto({ baseId: b.id }, bulkSf()); hh.bulk = true; hides.push(hh); } });   // 범위 동안 기본 가리기(일괄표식)
         snap.forEach(function (v) { var ex = newEx(v, bulkSf()); ex.bulk = true; exceptions.push(ex); added.push(ex); });          // 오늘 모습을 범위에 복사 (수정 배지는 안 붙임)
       }
       // 3) 보존된 개별 일정이 있는 날엔 새 루틴이 그 시간을 비켜가게 잘라주기
@@ -1715,18 +1992,30 @@
       clearTimeout(toastTimer);
       toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
     }
+    var alertTimer = null;
+    function showAlert(text) {   // 화면 가운데 크게 뜨는 안내 (저장 실패 등)
+      var a = document.getElementById('center-alert');
+      if (!a) { a = document.createElement('div'); a.id = 'center-alert'; a.className = 'center-alert'; a.innerHTML = '<div class="ca-box"><span class="ca-ic">⚠️</span><span class="ca-tx"></span></div>'; document.body.appendChild(a); }
+      a.querySelector('.ca-tx').textContent = text;
+      a.classList.add('show');
+      if (navigator.vibrate) navigator.vibrate(40);
+      clearTimeout(alertTimer);
+      alertTimer = setTimeout(function () { a.classList.remove('show'); }, 2600);
+    }
+    // 폼 검증 안내: 인라인 빨간 글씨 + 가운데 팝업 동시에
+    function formError(msgEl, text) { if (msgEl) msgEl.textContent = text; showAlert(text); }
 
     function saveForm() {
       var title = document.getElementById('f-title').value.trim();
       var todo = document.getElementById('f-todo').checked;
       var start = todo ? '' : document.getElementById('f-start').value, end = todo ? '' : document.getElementById('f-end').value;
       var msg = document.getElementById('form-msg');
-      if (!title) { msg.textContent = '무엇을 하는지 적어주세요.'; return; }
-      if (!todo && (!start || !end)) { msg.textContent = '시작과 끝 시간을 정해주세요.'; return; }
-      if (!todo && start === end) { msg.textContent = '시작과 끝 시간이 같아요.'; return; }
-      if (formScope === 'dates' && !pickedDates.length) { msg.textContent = '적용할 날짜를 하나 이상 고르세요.'; return; }
-      if (formScope === 'weekdays' && !formDays.length) { msg.textContent = '반복할 요일을 하나 이상 골라주세요.'; return; }
-      if (formScope === 'nthwd' && formNwDay === null) { msg.textContent = '몇째 주 무슨 요일인지 골라주세요.'; return; }
+      if (!title) { formError(msg, '무엇을 하는지 적어주세요.'); return; }
+      if (!todo && (!start || !end)) { formError(msg, '시작과 끝 시간을 정해주세요.'); return; }
+      if (!todo && start === end) { formError(msg, '시작과 끝 시간이 같아요.'); return; }
+      if (formScope === 'dates' && !pickedDates.length) { formError(msg, '적용할 날짜를 하나 이상 고르세요.'); return; }
+      if (formScope === 'weekdays' && !formDays.length) { formError(msg, '반복할 요일을 하나 이상 골라주세요.'); return; }
+      if (formScope === 'nthwd' && formNwDay === null) { formError(msg, '몇째 주 무슨 요일인지 골라주세요.'); return; }
 
       var pin = document.getElementById('f-pin').checked;
       var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo };
@@ -1748,16 +2037,18 @@
       }
 
       function commitSave() {
+        var wasEditing = !!editingItem;
         if (editingItem) applyEditScoped(editingItem, vals);
         else if (formScope === 'base') schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo });
         else exceptions.push(newEx(vals, sfN));
         logChange(editingItem ? '수정' : '추가', people[formWho].name + ' ' + title + (todo ? ' (메모)' : ''), scopeLabel, formEditor);
         saveAll(); refreshAll(); closeModal();
+        showToast('✅ ' + title + (wasEditing ? ' 수정됨' : ' 추가됨'));
       }
 
       if (conflicts.length) {
         var c0 = conflicts[0];
-        msg.textContent = '이 시간엔 이미 「' + c0.title + '」(' + c0.start + '–' + c0.end + ')이(가) 있어요. 겹치지 않게 해주세요.';
+        formError(msg, '이 시간엔 이미 「' + c0.title + '」(' + c0.start + '–' + c0.end + ')이(가) 있어요. 겹치지 않게 해주세요.');
         return;
       }
       commitSave();
@@ -1792,7 +2083,7 @@
       var start = document.getElementById('f-start').value, end = document.getElementById('f-end').value;
       var msg = document.getElementById('form-msg');
       if (document.getElementById('f-todo').checked) {   // 할 일 → 하루종일 일정으로 보내기
-        if (!title) { msg.textContent = '제목을 먼저 채워주세요.'; return; }
+        if (!title) { formError(msg, '제목을 먼저 채워주세요.'); return; }
         var D0 = editingItem ? editContextDate : formAnchor;
         var nx = parseYmd(D0); nx.setDate(nx.getDate() + 1);
         var url0 = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
@@ -1800,7 +2091,7 @@
         window.open(url0, '_blank');
         return;
       }
-      if (!title || !start || !end) { msg.textContent = '제목과 시간을 먼저 채워주세요.'; return; }
+      if (!title || !start || !end) { formError(msg, '제목과 시간을 먼저 채워주세요.'); return; }
       var D = editingItem ? editContextDate : formAnchor;   // 어느 날짜의 일정인지
       var endDate = D;
       if (toMin(end) <= toMin(start)) { var d = parseYmd(D); d.setDate(d.getDate() + 1); endDate = ymd(d); }  // 자정 넘김
@@ -1828,7 +2119,25 @@
     }
 
     /* ===== 앱 시작 ===== */
-    loadAll(); assignIds(); showToday();
+    // 예전 버그로 쌓인 일괄분 중복 청소: 같은 사람·같은 범위·같은 시간·같은 제목의 bulk 예외가 여러 개면 하나만 남김
+    function dedupeBulk() {
+      var seen = {}, before = exceptions.length;
+      exceptions = exceptions.filter(function (E) {
+        if (!E.bulk) return true;
+        var key = E.who + '|' + E.title + '|' + E.start + '|' + E.end + '|' + E.scope + '|' + (E.ym || '') + '|' + (E.date || '') + '|' + (E.y || '') + '|' + (E.from || '') + '|' + (E.until || '') + '|' + (E.days || '') + '|' + (E.nth || '') + '|' + (E.day || '');
+        if (seen[key]) return false;
+        seen[key] = true; return true;
+      });
+      // 같은 baseId·같은 범위의 중복 가림도 정리
+      var hseen = {};
+      hides = hides.filter(function (h) {
+        var key = h.baseId + '|' + (h.scope || '') + '|' + (h.ym || '') + '|' + (h.date || '') + '|' + (h.y || '') + '|' + (h.from || '') + '|' + (h.until || '');
+        if (hseen[key]) return false; hseen[key] = true; return true;
+      });
+      if (exceptions.length !== before) { saveAll(); }
+    }
+
+    loadAll(); assignIds(); dedupeBulk(); lastSnapshot = snapState(); showToday();
     buildCatButtons();
     pickPerson(document.querySelector('#people .person.active'));
     pickWeekPerson(document.querySelector('#week-people .person.active'));
