@@ -240,7 +240,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v43</div>
+      <div class="app-ver">2026.07.08.ver</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -1970,7 +1970,9 @@
       var cnt = 0;
       persons.forEach(function (w) {
         xlsParsed[w].forEach(function (ev) {
-          exceptions.push(newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: xlsCatFor(ev.title), editor: deviceWho }, { scope: 'day', date: todayStr }));
+          var xe = newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: xlsCatFor(ev.title), editor: deviceWho }, { scope: 'day', date: todayStr });
+          xe.bulk = true;   // 엑셀 루틴 원본 표식 → 일괄 적용하면 반복에 흡수돼 중복이 안 남아요
+          exceptions.push(xe);
           cnt++;
         });
       });
@@ -2102,7 +2104,12 @@
       }
       // 2) 그 범위의 기존 루틴 정리 — 개별 등록/수정 일정(비-일괄)은 보존!
       // 먼저, 이 사람들의 '이전 일괄분'(bulk 예외 + bulk 가림)을 전부 제거해 중복을 막음
-      exceptions = exceptions.filter(function (E) { return !(persons.indexOf(E.who) >= 0 && E.bulk); });
+      var probeSf = bulkSf();   // 새 범위가 덮는 날짜인지 검사용
+      exceptions = exceptions.filter(function (E) {
+        if (!(persons.indexOf(E.who) >= 0 && E.bulk)) return true;
+        if (E.scope === 'day' && !appliesOn(mergeInto({}, probeSf), E.date)) return true;   // 새 범위 밖의 하루짜리(엑셀 적용분 등)는 보존
+        return false;
+      });
       hides = hides.filter(function (h) {
         if (!h.bulk) return true;
         var b = schedule.filter(function (r) { return r.id === h.baseId; })[0];
