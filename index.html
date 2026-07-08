@@ -27,7 +27,7 @@
     }
     body { background: var(--bg); color: var(--ink); font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
     .app { max-width: 480px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); position: relative; }
-    .header { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); background: var(--card); }
+    .header { padding: calc(52px + env(safe-area-inset-top)) 20px 14px; border-bottom: 1px solid var(--line); background: var(--card); }
     .header h1 { font-size: 19px; font-weight: 600; }
     .header .date { margin-top: 3px; font-size: 13px; color: var(--muted); }
     .header .app-ver { font-size: 10px; color: #C9C6BB; margin-top: 1px; }
@@ -240,7 +240,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v42</div>
+      <div class="app-ver">v43</div>
     </header>
 
     <!-- 최근 수정 내역 -->
