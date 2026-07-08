@@ -55,20 +55,27 @@
         align-items: start;
         grid-template-areas:
           "title  title"
-          "people people"
-          "clock  toggle"
+          "people toggle"
+          "clock  list"
           "clock  list"
           "clock  grid"
           "clock  tip";
       }
       #screen-daily .screen-title { grid-area: title; }
-      #screen-daily .people { grid-area: people; }
-      #screen-daily .clock-card { grid-area: clock; position: sticky; top: 10px; }
+      #screen-daily .people { grid-area: people; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; margin: 0; gap: 5px; }
+      #screen-daily .people .person { padding: 6px 0; font-size: 12.5px; border-width: 1px; }
+      #screen-daily .clock-card { grid-area: clock; position: sticky; top: 48px; }   /* 사람 선택 바 아래에 고정 */
       #screen-daily .clock-card svg { max-width: 580px; }
-      #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; }
+      #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; }
       #screen-daily #daily-list { grid-area: list; }
       #screen-daily #daily-grid { grid-area: grid; }
       #screen-daily #tg-tip { grid-area: tip; }
+      /* 주간: 차트를 가로 폭에 맞춰 크게 */
+      #week-chart svg { max-width: 100%; width: 100%; }
+      #screen-week .clock-card { max-width: 960px; margin-left: auto; margin-right: auto; }
+      /* 월간: 달력을 화면 가득, 아래 날짜 상세(사람 선택·시계)는 숨김 */
+      .cal-cell { min-height: 96px; }
+      #day-detail { display: none; }
       /* 가로일 땐 헤더를 한 줄로 납작하게 (세로 공간 절약) */
       .header { padding: 8px 20px 6px; display: flex; align-items: center; gap: 10px; }
       .header .head-row { display: contents; }
@@ -125,7 +132,7 @@
     .cal-evs { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; overflow: hidden; }
     .cal-ev { font-size: 8.5px; line-height: 1.5; color: #fff; border-radius: 3px; padding: 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cal-more { font-size: 8px; color: var(--muted); padding-left: 2px; }
-    .week-evs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 10px; }
+    .week-evs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 10px; padding-left: 4.3%; box-sizing: border-box; }
     .wcol-day { text-align: center; font-size: 10px; color: var(--muted); margin-bottom: 3px; }
     .wcol-day .wnum { display: block; font-size: 12px; color: var(--ink); font-weight: 600; }
     .wcol.wtoday .wnum { color: var(--accent); }
@@ -277,7 +284,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v50</div>
+      <div class="app-ver">v54</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -761,7 +768,8 @@
       for (var m = 0; m < 1440; m += 30) {
         var d = careAt(items, 'dad', m), mo = careAt(items, 'mom', m);
         var color = d && mo ? leadColors.both : d ? leadColors.dad : mo ? leadColors.mom : leadColors.free;
-        if (prev && prev.color === color) prev.e = m + 30; else { prev = { s: m, e: m + 30, color: color }; segs.push(prev); }
+        var tt = d && mo ? '함께' : d ? '아빠' : mo ? '엄마' : '';   // 주간 색띠에 표시할 이름 (자유는 생략)
+        if (prev && prev.color === color) prev.e = m + 30; else { prev = { s: m, e: m + 30, color: color, title: tt }; segs.push(prev); }
       }
       return segs;
     }
@@ -1291,20 +1299,17 @@
     var weekPerson = 'all';
     function drawWeek() {
       var who = weekPerson;
-      var top = 24, H = 344, x0 = 32, colW = 304 / 7;
+      var VW = 700, top = 8, H = 344, x0 = 30, colW = (VW - x0 - 6) / 7;
       function y(m) { return top + m / 1440 * H; }
-      var dows = ['월', '화', '수', '목', '금', '토', '일'];
       var todayCol = (new Date().getDay() + 6) % 7;
       var svg = '';
       [6, 9, 12, 15, 18, 21].forEach(function (h) {
         var yy = y(h * 60);
-        svg += '<line x1="32" y1="' + yy.toFixed(1) + '" x2="336" y2="' + yy.toFixed(1) + '" stroke="var(--line)" stroke-width="0.5"/>';
-        svg += '<text x="28" y="' + (yy + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="#8C8B82">' + h + '</text>';
+        svg += '<line x1="' + x0 + '" y1="' + yy.toFixed(1) + '" x2="' + (VW - 6) + '" y2="' + yy.toFixed(1) + '" stroke="var(--line)" stroke-width="0.5"/>';
+        svg += '<text x="' + (x0 - 4) + '" y="' + (yy + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="#8C8B82">' + h + '</text>';
       });
       for (var d = 0; d < 7; d++) {
         var cx = x0 + d * colW;
-        var col = d === 6 ? '#C4553B' : d === 5 ? '#3B6FBF' : '#2C2C2A';
-        svg += '<text x="' + (cx + colW / 2).toFixed(1) + '" y="16" text-anchor="middle" font-size="11" fill="' + col + '">' + dows[d] + '</text>';
         // 각 요일은 '그 날짜'의 일정으로 그림 (예외 넣으면 그 칸만 달라짐)
         var items = itemsForDate(weekDates[d]);
         var segs = segmentsFor(items, who);
@@ -1313,19 +1318,19 @@
         parts.forEach(function (p) {
           var py = y(p.s), ph = y(p.e) - y(p.s);
           svg += '<rect x="' + (cx + 1).toFixed(1) + '" y="' + py.toFixed(1) + '" width="' + (colW - 2).toFixed(1) + '" height="' + ph.toFixed(1) + '" fill="' + p.color + '"/>';
-          if (p.title && ph >= 11) {   // 45분 이상 블록에만 이름 (좁아서 다 넣으면 뭉개져요)
+          if (p.title && ph >= 11) {   // 45분 이상 블록에만 이름
             var label = String(p.title).replace(/\s*\(.*\)\s*/g, '').slice(0, 6);
-            svg += '<text x="' + (cx + colW / 2).toFixed(1) + '" y="' + (py + ph / 2 + 2.4).toFixed(1) + '" text-anchor="middle" font-size="6.5" font-weight="600" fill="#fff">' + escapeHtml(label) + '</text>';
+            svg += '<text x="' + (cx + colW / 2).toFixed(1) + '" y="' + (py + ph / 2 + 2.7).toFixed(1) + '" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" stroke="rgba(0,0,0,0.25)" stroke-width="2" paint-order="stroke">' + escapeHtml(label) + '</text>';
           }
         });
       }
       svg += '<rect x="' + (x0 + todayCol * colW).toFixed(1) + '" y="' + top + '" width="' + colW.toFixed(1) + '" height="' + H + '" fill="none" stroke="var(--accent)" stroke-width="1.6" rx="4"/>';
       // 현재 시간 가로선 (오늘 칸 진하게)
       var nowY = y(nowMinutes()), tcx = x0 + todayCol * colW;
-      svg += '<line x1="32" y1="' + nowY.toFixed(1) + '" x2="336" y2="' + nowY.toFixed(1) + '" stroke="#C0392B" stroke-width="1" opacity="0.5"/>';
+      svg += '<line x1="' + x0 + '" y1="' + nowY.toFixed(1) + '" x2="' + (VW - 6) + '" y2="' + nowY.toFixed(1) + '" stroke="#C0392B" stroke-width="1" opacity="0.5"/>';
       svg += '<line x1="' + tcx.toFixed(1) + '" y1="' + nowY.toFixed(1) + '" x2="' + (tcx + colW).toFixed(1) + '" y2="' + nowY.toFixed(1) + '" stroke="#C0392B" stroke-width="2.5"/>';
       svg += '<circle cx="' + tcx.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="3.5" fill="#C0392B"/>';
-      document.getElementById('week-chart').innerHTML = '<svg viewBox="0 0 340 380" xmlns="http://www.w3.org/2000/svg">' + svg + '</svg>';
+      document.getElementById('week-chart').innerHTML = '<svg viewBox="0 0 ' + VW + ' ' + (top + H + 6) + '" xmlns="http://www.w3.org/2000/svg" style="width:100%">' + svg + '</svg>';
       var repItems = itemsForDate(weekDates[0]);
       document.getElementById('week-legend').innerHTML = legendHTML(legendEntries(who, segmentsFor(repItems, who)));
 
