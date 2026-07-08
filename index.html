@@ -50,7 +50,7 @@
       .header { padding-top: calc(14px + env(safe-area-inset-top)); }
       #screen-daily.active {
         display: grid;
-        grid-template-columns: minmax(330px, 46%) 1fr;
+        grid-template-columns: 5fr 3fr;   /* 원형차트 : 목록 = 5 : 3 */
         column-gap: 16px;
         align-items: start;
         grid-template-areas:
@@ -64,7 +64,7 @@
       #screen-daily .screen-title { grid-area: title; }
       #screen-daily .people { grid-area: people; }
       #screen-daily .clock-card { grid-area: clock; position: sticky; top: 10px; }
-      #screen-daily .clock-card svg { max-width: 420px; }
+      #screen-daily .clock-card svg { max-width: 580px; }
       #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; }
       #screen-daily #daily-list { grid-area: list; }
       #screen-daily #daily-grid { grid-area: grid; }
@@ -277,7 +277,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v49</div>
+      <div class="app-ver">v50</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -2560,13 +2560,29 @@
       if (exceptions.length !== before) { saveAll(); }
     }
 
+    /* 가로 대시보드: 현재 시간을 화면 가운데로 자동 스크롤 */
+    var lastUserAct = 0;
+    ['touchstart', 'wheel', 'pointerdown'].forEach(function (ev) {
+      window.addEventListener(ev, function () { lastUserAct = Date.now(); }, { passive: true });
+    });
+    function isDash() { return typeof matchMedia !== 'undefined' && matchMedia('(orientation: landscape) and (min-width: 640px)').matches; }
+    function centerNow() {
+      if (!isDash()) return;
+      var daily = document.getElementById('screen-daily');
+      if (!daily || !daily.classList.contains('active')) return;
+      if (lastUserAct && Date.now() - lastUserAct < 120000) return;   // 방금 조작했으면 방해하지 않기
+      var el = dailyView === 'grid' ? document.querySelector('#daily-grid .tg-now') : document.querySelector('#daily-list .item.now');
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+
     var __rotT = null;
     window.addEventListener('resize', function () {   // 가로/세로 회전 시 시계 다시 그리기
       clearTimeout(__rotT);
-      __rotT = setTimeout(function () { if (!window.__tgDragging) try { refreshAll(); } catch (e) {} }, 250);
+      __rotT = setTimeout(function () { if (!window.__tgDragging) try { refreshAll(); lastUserAct = 0; centerNow(); } catch (e) {} }, 250);
     });
 
     loadAll(); assignIds(); dedupeBulk(); lastSnapshot = snapState(); showToday();
+    setTimeout(centerNow, 900);   // 처음 열 때 현재 시간으로
     buildCatButtons();
     pickPerson(document.querySelector('#people .person.active'));
     pickWeekPerson(document.querySelector('#week-people .person.active'));
@@ -2579,6 +2595,7 @@
       todayStr = ymd(new Date());
       renderDaily(); drawWeek();
       if (selectedDate) renderDayDetail(selectedDate);
+      centerNow();   // 거치 모드: 현재 시간을 화면 가운데로
     }, 60000);
   </script>
 </body>
