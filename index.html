@@ -18,6 +18,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>우리 가족 스케줄</title>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#FAF8F2">
+  <link rel="manifest" href='data:application/manifest+json,{"name":"우리 가족 스케줄","short_name":"가족스케줄","start_url":"https://kimddubuck.github.io/Yunhafamily/","display":"standalone","background_color":"#FAF8F2","theme_color":"#2B7A78"}'>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -64,6 +69,12 @@
       #screen-daily #daily-list { grid-area: list; }
       #screen-daily #daily-grid { grid-area: grid; }
       #screen-daily #tg-tip { grid-area: tip; }
+      /* 가로일 땐 헤더를 한 줄로 납작하게 (세로 공간 절약) */
+      .header { padding: 8px 20px 6px; display: flex; align-items: center; gap: 10px; }
+      .header .head-row { display: contents; }
+      .header h1 { font-size: 17px; margin: 0; }
+      .header .date { margin: 0 auto 0 4px; }
+      .header .app-ver { margin: 0 8px 0 0; }
     }
     .screen-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
 
@@ -266,7 +277,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v48</div>
+      <div class="app-ver">v49</div>
     </header>
 
     <!-- 최근 수정 내역 -->
