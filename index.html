@@ -65,11 +65,18 @@
       #screen-daily .people { grid-area: people; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; margin: 0; gap: 5px; }
       #screen-daily .people .person { padding: 6px 0; font-size: 12.5px; border-width: 1px; }
       #screen-daily .clock-card { grid-area: clock; position: sticky; top: 48px; }   /* 사람 선택 바 아래에 고정 */
-      #screen-daily .clock-card svg { max-width: 580px; }
+      #screen-daily .clock-card svg { max-width: 470px; }
       #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; }
       #screen-daily #daily-list { grid-area: list; }
+      #screen-daily #daily-list .item { padding: 15px 14px; }
+      #screen-daily #daily-list .time { font-size: 15px; }
+      #screen-daily #daily-list .title { font-size: 17px; font-weight: 600; }
+      #screen-daily #daily-list .ititle { font-size: 17px; font-weight: 600; }
+      #screen-daily #daily-list .who { font-size: 15px; }
       #screen-daily #daily-grid { grid-area: grid; }
       #screen-daily #tg-tip { grid-area: tip; }
+      /* 오른쪽(목록/시간표)만 따로 스크롤 → 위 고정 툴바를 침범하지 않음 */
+      #screen-daily #daily-list, #screen-daily #daily-grid { max-height: calc(100dvh - 190px); overflow-y: auto; }
       /* 주간: 차트를 가로 폭에 맞춰 크게 */
       #week-chart svg { max-width: 100%; width: 100%; }
       #screen-week .clock-card { max-width: 960px; margin-left: auto; margin-right: auto; }
@@ -92,7 +99,7 @@
     .clock-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 10px 12px; }
     #daily-clock svg, #week-chart svg, #day-detail .clock-card svg { width: 100%; display: block; margin: 0 auto; }
     #daily-clock svg, #day-detail .clock-card svg { max-width: 320px; }
-    #week-chart svg { max-width: 360px; }
+    #week-chart svg { max-width: 100%; }
     .legend { display: flex; flex-wrap: wrap; gap: 7px 14px; justify-content: center; margin-top: 8px; }
     .legend .lg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
     .legend .dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
@@ -284,7 +291,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v54</div>
+      <div class="app-ver">v55</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -2575,7 +2582,7 @@
       if (!isDash()) return;
       var daily = document.getElementById('screen-daily');
       if (!daily || !daily.classList.contains('active')) return;
-      if (lastUserAct && Date.now() - lastUserAct < 120000) return;   // 방금 조작했으면 방해하지 않기
+      if (lastUserAct && Date.now() - lastUserAct < 30000) return;   // 방금 조작했으면 30초간 방해하지 않기
       var el = dailyView === 'grid' ? document.querySelector('#daily-grid .tg-now') : document.querySelector('#daily-list .item.now');
       if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
