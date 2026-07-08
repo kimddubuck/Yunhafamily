@@ -66,6 +66,11 @@
       #screen-daily .people .person { padding: 6px 0; font-size: 12.5px; border-width: 1px; }
       #screen-daily .clock-card { grid-area: clock; position: sticky; top: 48px; margin-top: 0; }   /* 사람 선택 바 아래에 고정 */
       #screen-daily .clock-card svg { max-width: 470px; }
+      #screen-daily #daily-clock { margin-left: -18px; }   /* 원형차트를 살짝 왼쪽으로 */
+      .live-clock { display: block; position: absolute; top: 14px; right: 18px; text-align: right; z-index: 5; }
+      .live-clock .lc-date { font-size: 15px; color: var(--muted); font-weight: 600; }
+      .live-clock .lc-time { font-size: 34px; font-weight: 800; color: var(--accent); line-height: 1.1; letter-spacing: 0.5px; font-variant-numeric: tabular-nums; }
+      .live-clock .lc-sec { font-size: 20px; font-weight: 700; }
       #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; }
       #screen-daily #daily-list { grid-area: list; margin-top: 0; }
       #screen-daily #daily-list .item { padding: 32px 16px; }
@@ -100,6 +105,7 @@
     .person.active { color: #fff; border-color: transparent; }
 
     .clock-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 10px 12px; }
+    .live-clock { display: none; }
     #daily-clock svg, #week-chart svg, #day-detail .clock-card svg { width: 100%; display: block; margin: 0 auto; }
     #daily-clock svg, #day-detail .clock-card svg { max-width: 320px; }
     #week-chart svg { max-width: 100%; }
@@ -294,7 +300,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v59</div>
+      <div class="app-ver">v60</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -437,7 +443,7 @@
           <button class="person"        data-person="mom"   onclick="pickPerson(this)">엄마</button>
           <button class="person"        data-person="child" onclick="pickPerson(this)">딸</button>
         </div>
-        <div class="clock-card"><div id="daily-clock"></div><div class="legend" id="daily-legend"></div></div>
+        <div class="clock-card" style="position:relative"><div class="live-clock" id="live-clock"></div><div id="daily-clock"></div><div class="legend" id="daily-legend"></div></div>
         <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" style="margin-left:auto" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" style="margin-left:6px" onclick="openBulk()">일괄 적용</button></div>
         <div class="list" id="daily-list"></div>
         <div id="daily-grid" style="display:none"></div>
@@ -2582,6 +2588,19 @@
     ['touchstart', 'wheel', 'pointerdown'].forEach(function (ev) {
       window.addEventListener(ev, function () { lastUserAct = Date.now(); }, { passive: true });
     });
+    function tickLiveClock() {
+      var el = document.getElementById('live-clock');
+      if (!el) return;
+      var n = new Date();
+      var days = ['일', '월', '화', '수', '목', '금', '토'];
+      var ap = n.getHours() < 12 ? '오전' : '오후';
+      var h12 = n.getHours() % 12; if (h12 === 0) h12 = 12;
+      var p2 = function (x) { return ('0' + x).slice(-2); };
+      el.innerHTML = '<div class="lc-date">' + (n.getMonth() + 1) + '월 ' + n.getDate() + '일 (' + days[n.getDay()] + ')</div>' +
+        '<div class="lc-time">' + ap + ' ' + h12 + ':' + p2(n.getMinutes()) + '<span class="lc-sec">:' + p2(n.getSeconds()) + '</span></div>';
+    }
+    setInterval(tickLiveClock, 1000); tickLiveClock();
+
     function isDash() { return typeof matchMedia !== 'undefined' && matchMedia('(orientation: landscape) and (min-width: 640px)').matches; }
     function syncListHeight() {   // 가로 대시보드: 목록/시간표의 위·아래 끝을 왼쪽 시계 카드와 정확히 맞춤
       var card = document.querySelector('#screen-daily .clock-card');
