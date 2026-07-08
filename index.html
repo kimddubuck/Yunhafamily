@@ -75,9 +75,8 @@
       #screen-daily #daily-list .who { font-size: 15px; }
       #screen-daily #daily-grid { grid-area: grid; }
       #screen-daily #tg-tip { grid-area: tip; }
-      /* 오른쪽(목록/시간표)만 따로 스크롤 → 위·아래 끝선을 왼쪽 시계 카드와 맞춤 */
-      #screen-daily #daily-list, #screen-daily #daily-grid { max-height: calc(100dvh - 148px); overflow-y: auto; }
-      #screen-daily .clock-card { max-height: calc(100dvh - 148px); }
+      /* 오른쪽(목록/시간표)만 따로 스크롤 → 높이는 JS(syncListHeight)가 시계 카드에 맞춤 */
+      #screen-daily #daily-list, #screen-daily #daily-grid { overflow-y: auto; }
       /* 주간: 차트를 가로 폭에 맞춰 크게 */
       #week-chart svg { max-width: 100%; width: 100%; }
       #screen-week .clock-card { max-width: 960px; margin-left: auto; margin-right: auto; }
@@ -294,7 +293,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v56</div>
+      <div class="app-ver">v57</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -1078,6 +1077,7 @@
       document.getElementById('daily-list').style.display = v === 'list' ? '' : 'none';
       document.getElementById('daily-grid').style.display = v === 'grid' ? '' : 'none';
       if (v === 'grid') renderGrid();
+      setTimeout(function () { try { syncListHeight(); } catch (e) {} }, 30);
     }
     function renderGrid() { renderGridInto('daily-grid', todayStr, currentPerson); }
     var monthView = 'list';
@@ -2443,6 +2443,7 @@
       var id = (name === 'daily') ? 'screen-daily' : (name === 'week') ? 'screen-week' : 'screen-month';
       document.getElementById(id).classList.add('active');
       document.getElementById('tab-' + name).classList.add('active');
+      if (name === 'daily') setTimeout(function () { try { syncListHeight(); centerNow(); } catch (e) {} }, 40);
     }
     function showToday() {
       var now = new Date(), days = ['일', '월', '화', '수', '목', '금', '토'];
@@ -2581,11 +2582,26 @@
       window.addEventListener(ev, function () { lastUserAct = Date.now(); }, { passive: true });
     });
     function isDash() { return typeof matchMedia !== 'undefined' && matchMedia('(orientation: landscape) and (min-width: 640px)').matches; }
+    function syncListHeight() {   // 가로 대시보드: 목록/시간표의 위·아래 끝을 왼쪽 시계 카드와 정확히 맞춤
+      var card = document.querySelector('#screen-daily .clock-card');
+      var list = document.getElementById('daily-list');
+      var grid = document.getElementById('daily-grid');
+      if (!card) return;
+      if (!isDash()) { [list, grid].forEach(function (el) { if (el) { el.style.height = ''; el.style.marginTop = ''; } }); return; }
+      var r = card.getBoundingClientRect();
+      [list, grid].forEach(function (el) {
+        if (!el) return;
+        var er = el.getBoundingClientRect();
+        el.style.marginTop = (r.top - er.top) + 'px';   // 위 끝을 시계 위 끝에 맞춤
+        el.style.height = r.height + 'px';              // 높이를 시계와 동일하게
+      });
+    }
     function centerNow() {
       if (!isDash()) return;
       var daily = document.getElementById('screen-daily');
       if (!daily || !daily.classList.contains('active')) return;
       if (lastUserAct && Date.now() - lastUserAct < 30000) return;   // 방금 조작했으면 30초간 방해하지 않기
+      syncListHeight();
       var el = dailyView === 'grid' ? document.querySelector('#daily-grid .tg-now') : document.querySelector('#daily-list .item.now');
       if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
@@ -2593,11 +2609,11 @@
     var __rotT = null;
     window.addEventListener('resize', function () {   // 가로/세로 회전 시 시계 다시 그리기
       clearTimeout(__rotT);
-      __rotT = setTimeout(function () { if (!window.__tgDragging) try { refreshAll(); lastUserAct = 0; centerNow(); } catch (e) {} }, 250);
+      __rotT = setTimeout(function () { if (!window.__tgDragging) try { refreshAll(); syncListHeight(); lastUserAct = 0; centerNow(); } catch (e) {} }, 250);
     });
 
     loadAll(); assignIds(); dedupeBulk(); lastSnapshot = snapState(); showToday();
-    setTimeout(centerNow, 900);   // 처음 열 때 현재 시간으로
+    setTimeout(function () { syncListHeight(); centerNow(); }, 900);   // 처음 열 때 높이 맞추고 현재 시간으로
     buildCatButtons();
     pickPerson(document.querySelector('#people .person.active'));
     pickWeekPerson(document.querySelector('#week-people .person.active'));
