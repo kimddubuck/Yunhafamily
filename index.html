@@ -266,7 +266,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v47</div>
+      <div class="app-ver">v48</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -798,12 +798,20 @@
       var withLabels = (who !== 'all');   // 세로·가로 모두 조각 이름 표시 (45분 이상 조각만)
       var labels = '';
       function segLabel(seg, span, isNight) {
-        if (!withLabels || span < 40) return;
+        if (!withLabels || span < 25) return;
         var lt = String(seg.title || '').replace(/\(.*$/, '').trim();
         if (!lt) return;
-        if (lt.length > 6) lt = lt.slice(0, 6) + '…';
-        var lp = pointOnCircle(89, ((seg.s + span / 2) % 1440) / 1440 * 360);
-        labels += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="central" font-size="8.5" font-weight="700" fill="#FFFFFF" stroke="rgba(0,0,0,0.3)" stroke-width="2.2" paint-order="stroke" font-family="inherit">' + escapeHtml(lt) + '</text>';
+        var deg = ((seg.s + span / 2) % 1440) / 1440 * 360;
+        if (span >= 45) {   // 넉넉한 조각: 가로 글씨
+          if (lt.length > 6) lt = lt.slice(0, 6) + '…';
+          var lp = pointOnCircle(89, deg);
+          labels += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="central" font-size="8.5" font-weight="700" fill="#FFFFFF" stroke="rgba(0,0,0,0.3)" stroke-width="2.2" paint-order="stroke" font-family="inherit">' + escapeHtml(lt) + '</text>';
+        } else {            // 좁은 조각(25~44분): 바큇살 방향으로 눕혀서
+          if (lt.length > 4) lt = lt.slice(0, 4);
+          var rp = pointOnCircle(100, deg);
+          var rot = deg > 180 ? deg + 90 : deg - 90;   // 왼쪽 반원은 뒤집어 읽기 편하게
+          labels += '<text x="' + rp[0].toFixed(1) + '" y="' + rp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="central" font-size="7.2" font-weight="700" fill="#FFFFFF" stroke="rgba(0,0,0,0.3)" stroke-width="2" paint-order="stroke" font-family="inherit" transform="rotate(' + rot.toFixed(1) + ' ' + rp[0].toFixed(1) + ' ' + rp[1].toFixed(1) + ')">' + escapeHtml(lt) + '</text>';
+        }
       }
       function isNightSeg(seg) {   // '수면' 그룹(취침)만 밤하늘로
         var nm = String(nameForCat(seg.cat) || '');
