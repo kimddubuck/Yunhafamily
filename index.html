@@ -73,11 +73,11 @@
       #screen-daily .clock-card { grid-area: clock; margin-top: 0; min-height: 0; overflow: hidden; align-self: stretch; }
       #screen-daily .clock-card svg { max-width: 470px; }
       #screen-daily #daily-clock { margin-left: -72px; }   /* 원형차트를 더 왼쪽으로 */
-      #screen-daily .live-clock { display: block; position: absolute; top: 12px; right: 14px; text-align: center; z-index: 5; background: #E8E9E4; border: 1px solid #C9CAC2; border-radius: 12px; padding: 12px 18px 13px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.12), 0 3px 10px rgba(0,0,0,0.1); }
-      .live-clock .lc-date { font-size: 14px; color: #6B6C64; font-weight: 700; margin-bottom: 5px; letter-spacing: 0.5px; }
-      .live-clock .lc-time { font-family: 'DSEG7', 'Segment7', monospace; font-size: 44px; font-weight: 800; color: #2A2B28; line-height: 1; letter-spacing: 3px; font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 rgba(255,255,255,0.6), -0.5px -0.5px 0 rgba(0,0,0,0.15); }
-      .live-clock .lc-ap { font-family: inherit; font-size: 17px; font-weight: 800; color: var(--accent); margin-right: 7px; letter-spacing: 0; text-shadow: none; vertical-align: middle; }
-      .live-clock .lc-sec { font-size: 26px; font-weight: 800; color: #7A7B72; }
+      #screen-daily .live-clock { display: block; position: absolute; top: 12px; right: 14px; z-index: 5; background: none; border: none; box-shadow: none; padding: 0; text-align: right; }
+      .live-clock .lc-date { font-size: 13px; color: #6B6C64; font-weight: 700; margin-bottom: 4px; text-align: right; letter-spacing: 0.3px; }
+      .live-clock .lc-digits { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+      .live-clock .lc-d { font-family: 'DSEG7', monospace; font-size: 30px; color: #1F201D; background: #FCFBF7; border: 2.5px solid #2A2B28; border-radius: 9px; padding: 7px 7px 6px; line-height: 1; min-width: 30px; text-align: center; }
+      .live-clock .lc-colon { font-family: 'DSEG7', monospace; font-size: 26px; font-weight: 800; color: #1F201D; margin: 0 1px; }
       #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; }
       #screen-daily #daily-list, #screen-daily #daily-grid { grid-area: list; margin-top: 0; min-height: 0; height: 100%; overflow-y: auto; }
       #screen-daily #daily-list .item { padding: 32px 16px; }
@@ -307,7 +307,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v68</div>
+      <div class="app-ver">v69</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -2600,11 +2600,14 @@
       if (!el) return;
       var n = new Date();
       var days = ['일', '월', '화', '수', '목', '금', '토'];
-      var ap = n.getHours() < 12 ? '오전' : '오후';
-      var h12 = n.getHours() % 12; if (h12 === 0) h12 = 12;
       var p2 = function (x) { return ('0' + x).slice(-2); };
+      var hh = p2(n.getHours()), mm = p2(n.getMinutes());   // 24시간제
       el.innerHTML = '<div class="lc-date">' + (n.getMonth() + 1) + '월 ' + n.getDate() + '일 (' + days[n.getDay()] + ')</div>' +
-        '<div class="lc-time"><span class="lc-ap">' + ap + '</span>' + h12 + ':' + p2(n.getMinutes()) + '</div>';
+        '<div class="lc-digits">' +
+          '<span class="lc-d">' + hh[0] + '</span><span class="lc-d">' + hh[1] + '</span>' +
+          '<span class="lc-colon">:</span>' +
+          '<span class="lc-d">' + mm[0] + '</span><span class="lc-d">' + mm[1] + '</span>' +
+        '</div>';
     }
     setInterval(tickLiveClock, 1000); tickLiveClock();
     setInterval(function () { try { centerNow(); } catch (e) {} }, 5000);   // 조작 후 10초 지나면 곧 현재 시간으로 복귀
