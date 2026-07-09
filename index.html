@@ -39,7 +39,8 @@
     }
     body { background: var(--bg); color: var(--ink); font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
     .app { max-width: 480px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); position: relative; }
-    .header { padding: calc(52px + env(safe-area-inset-top)) 20px 14px; border-bottom: 1px solid var(--line); background: var(--card); }
+    .header { display: none; }   /* 제목·날짜 헤더 제거 — 공간 절약 (수정내역은 각 화면 우상단으로) */
+    main { padding-top: calc(46px + env(safe-area-inset-top)); }
     .header h1 { font-size: 19px; font-weight: 600; }
     .header .date { margin-top: 3px; font-size: 13px; color: var(--muted); }
     .header .app-ver { font-size: 10px; color: #C9C6BB; margin-top: 1px; }
@@ -54,7 +55,7 @@
     /* ===== 가로 화면(태블릿 거치·폰 가로): 데일리 2단 대시보드 ===== */
     @media (orientation: landscape) and (min-width: 640px) {
       .app { max-width: 1080px; }
-      .header { padding-top: calc(14px + env(safe-area-inset-top)); }
+      main { padding-top: calc(8px + env(safe-area-inset-top)); }
       #screen-daily.active {
         display: grid;
         grid-template-columns: 5fr 3fr;   /* 원형차트 : 목록 = 5 : 3 */
@@ -145,7 +146,7 @@
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
     .cal-dow { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 0 4px; }
     .cal-dow.sun { color: #C4553B; } .cal-dow.sat { color: #3B6FBF; }
-    .cal-cell { min-height: 62px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: flex; flex-direction: column; padding: 4px 4px 3px; cursor: pointer; overflow: hidden; }
+    .cal-cell { min-height: 13vh;   /* 세로: 화면 높이에 비례해 크게 (월간이 한 화면 꽉 차도록) */ border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: flex; flex-direction: column; padding: 4px 4px 3px; cursor: pointer; overflow: hidden; }
     .cal-cell.blank { border: none; background: transparent; cursor: default; }
     .cal-daynum { font-size: 13px; padding-left: 2px; }
     .cal-cell.today { border-color: var(--accent); }
@@ -307,7 +308,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v70</div>
+      <div class="app-ver">v72</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -443,7 +444,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title" id="daily-title">데일리 · 오늘</div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v72</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -458,7 +459,7 @@
       </section>
 
       <section class="screen" id="screen-week">
-        <div class="screen-title" id="week-title">주간 · 이번 주</div>
+        <div class="screen-title month-title-row"><span id="week-title">주간 · 이번 주</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
         <div class="people" id="week-people">
           <button class="person active" data-person="all"   onclick="pickWeekPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickWeekPerson(this)">아빠</button>
@@ -470,7 +471,7 @@
       </section>
 
       <section class="screen" id="screen-month">
-        <div class="screen-title month-title-row">월간 · 달력<button class="pin-off-mini" onclick="askResetPins()">📅 표시 초기화</button></div>
+        <div class="screen-title month-title-row">월간 · 달력<span style="display:flex;align-items:center;gap:8px;margin-left:auto"><button class="pin-off-mini" onclick="askResetPins()">📅 표시 초기화</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="cal-head">
           <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
           <div class="cal-title" id="cal-title"></div>
