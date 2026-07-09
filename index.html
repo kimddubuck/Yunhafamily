@@ -24,6 +24,13 @@
   <meta name="theme-color" content="#FAF8F2">
   <link rel="manifest" href='data:application/manifest+json,{"name":"우리 가족 스케줄","short_name":"가족스케줄","start_url":"https://kimddubuck.github.io/Yunhafamily/","display":"standalone","background_color":"#FAF8F2","theme_color":"#2B7A78"}'>
   <style>
+    /* 세븐세그먼트(디지털 전광판) 폰트 — 인터넷 연결 시 로드, 없으면 monospace로 대체 */
+    @font-face {
+      font-family: 'DSEG7';
+      src: url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Classic/DSEG7Classic-Bold.woff2') format('woff2'),
+           url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Classic/DSEG7Classic-Bold.woff') format('woff');
+      font-weight: bold; font-display: swap;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #FAF8F4; --card: #FFFFFF; --ink: #2C2C2A;
@@ -51,44 +58,43 @@
       #screen-daily.active {
         display: grid;
         grid-template-columns: 5fr 3fr;   /* 원형차트 : 목록 = 5 : 3 */
+        grid-template-rows: auto auto minmax(0, 1fr);
         column-gap: 16px;
-        align-items: start;
+        align-items: stretch;
+        height: calc(100dvh - 96px);       /* 화면 높이에 고정 → 시간 흘러도 안 흔들림 */
         grid-template-areas:
           "title  title"
           "people toggle"
-          "clock  list"
-          "clock  list"
-          "clock  grid"
-          "clock  tip";
+          "clock  list";
       }
       #screen-daily .screen-title { grid-area: title; }
-      #screen-daily .people { grid-area: people; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; margin: 0; gap: 5px; }
+      #screen-daily .people { grid-area: people; z-index: 20; background: var(--bg); padding: 8px 0 6px; margin: 0; gap: 5px; }
       #screen-daily .people .person { padding: 6px 0; font-size: 12.5px; border-width: 1px; }
-      #screen-daily .clock-card { grid-area: clock; position: sticky; top: 48px; margin-top: 0; }   /* 사람 선택 바 아래에 고정 */
+      #screen-daily .clock-card { grid-area: clock; margin-top: 0; min-height: 0; overflow: hidden; align-self: stretch; }
       #screen-daily .clock-card svg { max-width: 470px; }
-      #screen-daily #daily-clock { margin-left: -48px; }   /* 원형차트를 더 왼쪽으로 */
-      #screen-daily .live-clock { display: block; position: absolute; top: 12px; right: 14px; text-align: center; z-index: 5; background: #FFFFFF; border: 1px solid var(--line); border-radius: 16px; padding: 13px 22px 15px; box-shadow: 0 3px 12px rgba(0,0,0,0.09); }
-      .live-clock .lc-date { font-size: 15px; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
-      .live-clock .lc-time { font-size: 40px; font-weight: 800; color: #1E2430; line-height: 1.05; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
-      .live-clock .lc-ap { font-size: 19px; font-weight: 700; color: var(--accent); margin-right: 5px; }
-      .live-clock .lc-sec { font-size: 22px; font-weight: 700; color: var(--accent); }
-      #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; }
-      #screen-daily #daily-list { grid-area: list; margin-top: 0; }
+      #screen-daily #daily-clock { margin-left: -72px; }   /* 원형차트를 더 왼쪽으로 */
+      #screen-daily .live-clock { display: block; position: absolute; top: 12px; right: 14px; text-align: center; z-index: 5; background: #E8E9E4; border: 1px solid #C9CAC2; border-radius: 12px; padding: 12px 18px 13px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.12), 0 3px 10px rgba(0,0,0,0.1); }
+      .live-clock .lc-date { font-size: 14px; color: #6B6C64; font-weight: 700; margin-bottom: 5px; letter-spacing: 0.5px; }
+      .live-clock .lc-time { font-family: 'DSEG7', 'Segment7', monospace; font-size: 44px; font-weight: 800; color: #2A2B28; line-height: 1; letter-spacing: 3px; font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 rgba(255,255,255,0.6), -0.5px -0.5px 0 rgba(0,0,0,0.15); }
+      .live-clock .lc-ap { font-family: inherit; font-size: 17px; font-weight: 800; color: var(--accent); margin-right: 7px; letter-spacing: 0; text-shadow: none; vertical-align: middle; }
+      .live-clock .lc-sec { font-size: 26px; font-weight: 800; color: #7A7B72; }
+      #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; }
+      #screen-daily #daily-list, #screen-daily #daily-grid { grid-area: list; margin-top: 0; min-height: 0; height: 100%; overflow-y: auto; }
       #screen-daily #daily-list .item { padding: 32px 16px; }
       #screen-daily #daily-list .time { font-size: 18px; width: 128px; white-space: nowrap; }
       #screen-daily #daily-list .title { font-size: 21px; font-weight: 700; }
       #screen-daily #daily-list .ititle { font-size: 21px; font-weight: 700; }
       #screen-daily #daily-list .who { font-size: 18px; font-weight: 600; }
       #screen-daily #daily-list .nowbadge { font-size: 13px; }
-      #screen-daily #daily-grid { grid-area: grid; }
-      #screen-daily #tg-tip { grid-area: tip; }
-      /* 오른쪽(목록/시간표)만 따로 스크롤 → 높이는 JS(syncListHeight)가 시계 카드에 맞춤 */
-      #screen-daily #daily-list, #screen-daily #daily-grid { overflow-y: auto; }
+      #screen-daily #tg-tip { display: none; }
       /* 주간: 차트를 가로 폭에 맞춰 크게 */
       #week-chart svg { max-width: 100%; width: 100%; }
       #screen-week .clock-card { max-width: 960px; margin-left: auto; margin-right: auto; }
+      /* 가로: 하단 탭바를 낮게 (화면 세로 공간 확보) */
+      .tab { padding: 3px 0 2px; font-size: 11px; gap: 1px; }
+      .tab svg { width: 17px; height: 17px; }
       /* 월간: 달력을 화면 세로로 꽉 채우기 (아래 여백 제거) */
-      #screen-month.active { display: flex; flex-direction: column; height: calc(100dvh - 108px); }
+      #screen-month.active { display: flex; flex-direction: column; height: calc(100dvh - 88px); }
       #screen-month .cal-grid { flex: 1; grid-auto-rows: 1fr; }
       .cal-cell { min-height: 0; }
       #day-detail { display: none; }
@@ -301,7 +307,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v63</div>
+      <div class="app-ver">v68</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -2598,30 +2604,22 @@
       var h12 = n.getHours() % 12; if (h12 === 0) h12 = 12;
       var p2 = function (x) { return ('0' + x).slice(-2); };
       el.innerHTML = '<div class="lc-date">' + (n.getMonth() + 1) + '월 ' + n.getDate() + '일 (' + days[n.getDay()] + ')</div>' +
-        '<div class="lc-time"><span class="lc-ap">' + ap + '</span>' + h12 + ':' + p2(n.getMinutes()) + '<span class="lc-sec">:' + p2(n.getSeconds()) + '</span></div>';
+        '<div class="lc-time"><span class="lc-ap">' + ap + '</span>' + h12 + ':' + p2(n.getMinutes()) + '</div>';
     }
     setInterval(tickLiveClock, 1000); tickLiveClock();
+    setInterval(function () { try { centerNow(); } catch (e) {} }, 5000);   // 조작 후 10초 지나면 곧 현재 시간으로 복귀
 
     function isDash() { return typeof matchMedia !== 'undefined' && matchMedia('(orientation: landscape) and (min-width: 640px)').matches; }
-    function syncListHeight() {   // 가로 대시보드: 목록/시간표의 위·아래 끝을 왼쪽 시계 카드와 정확히 맞춤
-      var card = document.querySelector('#screen-daily .clock-card');
+    function syncListHeight() {   // 높이는 이제 순수 CSS가 맞춤 — JS 인라인 조정 제거(틀어짐 버그 방지)
       var list = document.getElementById('daily-list');
       var grid = document.getElementById('daily-grid');
-      if (!card) return;
-      if (!isDash()) { [list, grid].forEach(function (el) { if (el) { el.style.height = ''; el.style.marginTop = ''; } }); return; }
-      var r = card.getBoundingClientRect();
-      [list, grid].forEach(function (el) {
-        if (!el) return;
-        var er = el.getBoundingClientRect();
-        el.style.marginTop = (r.top - er.top) + 'px';   // 위 끝을 시계 위 끝에 맞춤
-        el.style.height = r.height + 'px';              // 높이를 시계와 동일하게
-      });
+      [list, grid].forEach(function (el) { if (el) { el.style.height = ''; el.style.marginTop = ''; } });
     }
     function centerNow() {
       if (!isDash()) return;
       var daily = document.getElementById('screen-daily');
       if (!daily || !daily.classList.contains('active')) return;
-      if (lastUserAct && Date.now() - lastUserAct < 30000) return;   // 방금 조작했으면 30초간 방해하지 않기
+      if (lastUserAct && Date.now() - lastUserAct < 10000) return;   // 방금 조작했으면 10초간 방해하지 않기
       syncListHeight();
       var el = dailyView === 'grid' ? document.querySelector('#daily-grid .tg-now') : document.querySelector('#daily-list .item.now');
       if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
