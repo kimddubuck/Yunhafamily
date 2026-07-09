@@ -124,6 +124,14 @@
     .list { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-top: 14px; }
     .item-wrap { position: relative; overflow: hidden; }
     .item-wrap:last-child .item { border-bottom: none; }
+    /* 일괄 선택 모드 */
+    .selbox { width: 22px; height: 22px; flex-shrink: 0; border: 2px solid var(--muted); border-radius: 6px; margin-right: 2px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: transparent; background: var(--card); }
+    .selbox.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .sel-bar { display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 60; background: var(--ink); color: #fff; border-radius: 999px; padding: 10px 16px; box-shadow: 0 6px 18px rgba(0,0,0,0.25); align-items: center; gap: 12px; font-size: 14px; }
+    .sel-bar.show { display: flex; }
+    .sel-bar button { border: none; border-radius: 999px; padding: 7px 14px; font-size: 14px; font-family: inherit; cursor: pointer; }
+    .sel-bar .sb-del { background: #C0392B; color: #fff; font-weight: 700; }
+    .sel-bar .sb-cancel { background: rgba(255,255,255,0.18); color: #fff; }
     .item-del { position: absolute; top: 0; bottom: 0; right: 0; width: 84px; background: #C0392B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; gap: 4px; cursor: pointer; border-radius: 0 12px 12px 0; }
     .item { position: relative; background: var(--card); display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--line); touch-action: pan-y; }
     .item .time { font-size: 13px; color: var(--muted); width: 96px; flex-shrink: 0; }
@@ -308,7 +316,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v75</div>
+      <div class="app-ver">v76</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -349,6 +357,17 @@
         <div class="field"><label>① 옮길 곳을 먼저 고르고 → ② 일정을 톡</label><div class="cat-pick" id="ci-targets"></div></div>
         <div class="hist-list" id="ci-list"></div>
         <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeCatItems()">닫기</button></div>
+      </div>
+    </div>
+
+    <div class="sel-bar" id="sel-bar"><span id="sel-count">0개 선택</span><button class="sb-del" onclick="askBulkDelete()">🗑 선택 삭제</button><button class="sb-cancel" onclick="exitSelMode()">취소</button></div>
+
+    <!-- 일괄 삭제 확인 -->
+    <div class="modal" id="bulkdel-modal">
+      <div class="sheet small">
+        <div class="sheet-title">선택 일정 삭제</div>
+        <div class="ow-note" id="bulkdel-text"></div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeBulkDel()">취소</button><button class="btn btn-save" style="background:#C0392B" onclick="confirmBulkDelete()">삭제</button></div>
       </div>
     </div>
 
@@ -444,7 +463,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v75</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v76</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -996,10 +1015,11 @@
       var nowBadge = isNow ? '<span class="nowbadge">지금</span>' : '';
       var whoTag = showWho ? '<span class="who" style="color:' + color + '">' + people[row.who].name + '</span>' : '';
       var timeCell = row.todo ? '<span class="time"><span class="todo-tag">📝 메모</span></span>' : '<span class="time">' + row.start + ' – ' + row.end + '</span>';
+      var selbox = selMode ? '<span class="selbox' + (selSet[row.id + '|' + dateStr] ? ' on' : '') + '">✓</span>' : '';
       return '<div class="item-wrap" data-id="' + row.id + '" data-date="' + dateStr + '">' +
                '<div class="item-del" onclick="askDeleteItem(event,' + row.id + ',\'' + dateStr + '\')">🗑 삭제</div>' +
                '<div class="item' + (isNow ? ' now' : '') + (row.todo ? ' todo' : '') + '" style="border-left-color:' + color + '" onclick="itemTap(event,' + row.id + ',\'' + dateStr + '\')">' +
-                 timeCell +
+                 selbox + timeCell +
                  '<span class="ititle">' + row.title + ' ' + badge + nowBadge + '</span>' + whoTag +
                '</div></div>';
     }
@@ -1015,8 +1035,48 @@
     /* ===== 왼쪽으로 밀어서 삭제 버튼 열기 → 눌러야 확인 ===== */
     function itemTap(ev, id, dateStr) {
       if (Date.now() - (window.__swipeEnd || 0) < 300) return;   // 방금 민 거면 열지 않음
+      if (Date.now() - (window.__lpEnd || 0) < 400) return;      // 방금 길게 누른 거면 무시
+      if (selMode) {   // 선택 모드: 탭 = 체크 토글
+        var k = id + '|' + dateStr;
+        if (selSet[k]) delete selSet[k]; else selSet[k] = true;
+        renderDaily(); updateSelBar();
+        return;
+      }
       if (closeOpenSwipe()) return;                              // 열린 삭제 버튼이 있으면 먼저 닫기만
       openEdit(id, dateStr);
+    }
+    /* ===== 길게 눌러 일괄 선택 모드 ===== */
+    var selMode = false, selSet = {};
+    function enterSelMode(id, dateStr) {
+      selMode = true; selSet = {}; selSet[id + '|' + dateStr] = true;
+      if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) {}
+      closeOpenSwipe(); renderDaily(); updateSelBar();
+    }
+    function exitSelMode() {
+      selMode = false; selSet = {};
+      document.getElementById('sel-bar').classList.remove('show');
+      renderDaily();
+    }
+    function updateSelBar() {
+      var n = Object.keys(selSet).length;
+      document.getElementById('sel-count').textContent = n + '개 선택';
+      document.getElementById('sel-bar').classList.toggle('show', selMode);
+    }
+    function askBulkDelete() {
+      var n = Object.keys(selSet).length;
+      if (!n) { showToast('선택된 일정이 없어요'); return; }
+      document.getElementById('bulkdel-text').innerHTML = '선택한 일정 <b>' + n + '개</b>를 삭제하시겠습니까?<br>이 날짜에서만 지워져요. (실수하면 수정내역 ↩️ 되돌리기)';
+      document.getElementById('bulkdel-modal').classList.add('open');
+    }
+    function closeBulkDel() { document.getElementById('bulkdel-modal').classList.remove('open'); }
+    function confirmBulkDelete() {
+      var keys = Object.keys(selSet);
+      keys.forEach(function (k) {
+        var parts = k.split('|');
+        deleteItemForDate(parseInt(parts[0], 10), parts[1]);
+      });
+      closeBulkDel(); exitSelMode();
+      showToast('일정 ' + keys.length + '개를 삭제했어요');
     }
     var openSwipeItem = null;   // 지금 삭제 버튼이 열려있는 .item
     function closeOpenSwipe() {
@@ -1055,6 +1115,16 @@
         if (!wrap) { sw = null; return; }
         var item = wrap.querySelector('.item');
         sw = { wrap: wrap, item: item, x0: e.touches[0].clientX, y0: e.touches[0].clientY, dx: 0, moved: false, base: (openSwipeItem === item ? -OPEN : 0) };
+        // 길게 누르면(0.6초) 일괄 선택 모드
+        clearTimeout(window.__lpT);
+        if (wrap.closest('#daily-list') || wrap.closest('#day-detail')) {
+          window.__lpT = setTimeout(function () {
+            if (sw && !sw.moved) {
+              window.__lpEnd = Date.now(); sw = null;
+              enterSelMode(parseInt(wrap.dataset.id, 10), wrap.dataset.date);
+            }
+          }, 600);
+        }
       }, { passive: true });
       document.addEventListener('touchmove', function (e) {
         if (!sw) return;
@@ -1064,11 +1134,13 @@
         if (eff > 0) eff = 0;
         if (eff < -OPEN) eff = -OPEN;                    // 삭제 버튼 너비까지만 (더 밀려도 안 넘어감)
         sw.dx = dx; sw.eff = eff; if (Math.abs(dx) > 6) sw.moved = true;
+        if (sw.moved || Math.abs(dy) > 8) clearTimeout(window.__lpT);
         sw.item.style.transition = 'none';
         sw.item.style.transform = 'translateX(' + eff + 'px)';
         if (sw.moved && e.cancelable) e.preventDefault();
       }, { passive: false });
       document.addEventListener('touchend', function () {
+        clearTimeout(window.__lpT);
         if (!sw) return;
         var item = sw.item;
         item.style.transition = 'transform 0.2s';
