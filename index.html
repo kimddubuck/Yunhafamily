@@ -308,7 +308,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v72</div>
+      <div class="app-ver">v73</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -444,7 +444,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v72</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v73</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -1324,7 +1324,8 @@
     var weekPerson = 'all';
     function drawWeek() {
       var who = weekPerson;
-      var VW = 700, top = 8, H = 344, x0 = 30, colW = (VW - x0 - 6) / 7;
+      var isWide = (typeof matchMedia !== 'undefined') && matchMedia('(orientation: landscape) and (min-width: 640px)').matches;
+      var VW = 700, top = 8, H = isWide ? 430 : 1100, x0 = 30, colW = (VW - x0 - 6) / 7;   // 세로는 화면 꽉 차게 길게
       function y(m) { return top + m / 1440 * H; }
       var todayCol = (new Date().getDay() + 6) % 7;
       var svg = '';
