@@ -75,9 +75,9 @@
       #screen-daily #daily-clock { margin-left: -72px; }   /* 원형차트를 더 왼쪽으로 */
       #screen-daily .live-clock { display: block; position: absolute; top: 12px; right: 14px; z-index: 5; background: none; border: none; box-shadow: none; padding: 0; text-align: right; }
       .live-clock .lc-date { font-size: 13px; color: #6B6C64; font-weight: 700; margin-bottom: 4px; text-align: right; letter-spacing: 0.3px; }
-      .live-clock .lc-digits { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
-      .live-clock .lc-d { font-family: 'DSEG7', monospace; font-size: 30px; color: #1F201D; background: #FCFBF7; border: 2.5px solid #2A2B28; border-radius: 9px; padding: 7px 7px 6px; line-height: 1; min-width: 30px; text-align: center; }
-      .live-clock .lc-colon { font-family: 'DSEG7', monospace; font-size: 26px; font-weight: 800; color: #1F201D; margin: 0 1px; }
+      .live-clock .lc-digits { display: flex; align-items: center; gap: 3px; justify-content: flex-end; }
+      .live-clock .lc-d { font-family: 'DSEG7', monospace; font-size: 28px; color: #1F201D; background: #FCFBF7; border: 2px solid #2A2B28; border-radius: 8px; padding: 6px 4px 5px; line-height: 1; min-width: 24px; text-align: center; }
+      .live-clock .lc-colon { font-family: 'DSEG7', monospace; font-size: 24px; font-weight: 800; color: #1F201D; margin: 0; }
       #screen-daily .view-toggle { grid-area: toggle; margin-top: 0; z-index: 20; background: var(--bg); padding: 8px 0 6px; }
       #screen-daily #daily-list, #screen-daily #daily-grid { grid-area: list; margin-top: 0; min-height: 0; height: 100%; overflow-y: auto; }
       #screen-daily #daily-list .item { padding: 32px 16px; }
@@ -307,7 +307,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v69</div>
+      <div class="app-ver">v70</div>
     </header>
 
     <!-- 최근 수정 내역 -->
