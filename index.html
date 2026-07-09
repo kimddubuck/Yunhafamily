@@ -308,7 +308,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v74</div>
+      <div class="app-ver">v75</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -444,7 +444,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v74</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v75</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -521,6 +521,7 @@
           </div>
         </div>
         <label class="pin-row"><input type="checkbox" id="f-todo" onchange="toggleTodoUI()" /><span>📝 메모 <span class="sub">(시간 없이 그날 붙이는 메모)</span></span></label>
+        <div class="field"><label>날짜</label><input type="date" id="f-date" onchange="onFormDateChange()" /></div>
         <div class="times" id="time-fields">
           <div class="field"><label>시작</label><input type="time" id="f-start" /></div>
           <div class="field"><label>끝</label><input type="time" id="f-end" /></div>
@@ -1605,11 +1606,23 @@
       rebuildCatColors(); saveAll(); buildCatButtons(); refreshAll();
     }
 
+    function onFormDateChange() {   // 팝업의 날짜칸을 바꾸면 그 날짜가 '기준 날짜'가 됨
+      var v = document.getElementById('f-date').value;
+      if (!v) return;
+      formAnchor = v;
+      var act = document.querySelector('#scope-pick .scope.active');
+      if (act) pickScope(act, true);   // 라벨·미니달력 다시 그리기 (기준 날짜 유지)
+      updateScopeHint();
+    }
     function pickScope(btn, keepAnchor) {
       document.querySelectorAll('#scope-pick .scope').forEach(function (p) { p.classList.remove('active'); });
       btn.classList.add('active'); formScope = btn.dataset.scope;
       // 사용자가 직접 범위를 바꾸면 기준 날짜를 '지금 보고 있는 날'로 되돌림 (수정 중이면 그 날짜)
-      if (!keepAnchor) { formAnchor = editingItem ? editContextDate : (selectedDate ? ymdOf(monthState.y, monthState.m, selectedDate) : todayStr); if (formScope === 'nthwd') { formNwDay = null; } }
+      if (!keepAnchor) {
+        var fd = document.getElementById('f-date');
+        formAnchor = (fd && fd.value) ? fd.value : (editingItem ? editContextDate : (selectedDate ? ymdOf(monthState.y, monthState.m, selectedDate) : todayStr));
+        if (formScope === 'nthwd') { formNwDay = null; }
+      }
       var showCal = (formScope === 'dates');
       document.getElementById('minical').style.display = showCal ? '' : 'none';
       document.getElementById('wd-field').style.display = (formScope === 'weekdays') ? '' : 'none';
@@ -1716,6 +1729,7 @@
     function openAdd() {
       editingItem = null;
       formAnchor = (currentTab === 'month' && selectedDate) ? ymdOf(monthState.y, monthState.m, selectedDate) : todayStr;
+      document.getElementById('f-date').value = formAnchor;   // 날짜칸 기본값
       pickedDates = [];
       document.getElementById('sheet-title').textContent = '새 일정';
       document.getElementById('btn-del').style.display = 'none';
@@ -1740,6 +1754,7 @@
       var row = schedule.concat(exceptions).filter(function (r) { return r.id === id; })[0];
       if (!row) return;
       editingItem = row; editContextDate = dateStr; formAnchor = dateStr;
+      document.getElementById('f-date').value = dateStr;   // 날짜칸 = 열어본 날짜
       pickedDates = [];
       document.getElementById('sheet-title').textContent = '일정 수정';
       document.getElementById('btn-del').style.display = '';
