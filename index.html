@@ -160,8 +160,8 @@
     .cal-daynum { font-size: 13px; padding-left: 2px; }
     .cal-cell.today { border-color: var(--accent); }
     .cal-cell.today .cal-daynum { color: var(--accent); font-weight: 700; }
-    .cal-cell.selected { box-shadow: inset 0 0 0 1.6px var(--accent); border-color: transparent; }
-    .cal-cell.selected .cal-daynum { color: var(--accent); font-weight: 700; }
+    .cal-cell.selected { box-shadow: inset 0 0 0 3px #D63A2E; border-color: #D63A2E; }
+    .cal-cell.selected .cal-daynum { color: #D63A2E; font-weight: 800; }
     .cal-evs { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; overflow: hidden; }
     .cal-ev { font-size: 8.5px; line-height: 1.5; color: #fff; border-radius: 3px; padding: 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cal-more { font-size: 8px; color: var(--muted); padding-left: 2px; }
@@ -317,7 +317,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v77</div>
+      <div class="app-ver">v79</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -464,7 +464,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v77</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v79</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -1040,7 +1040,7 @@
       if (selMode) {   // 선택 모드: 탭 = 체크 토글
         var k = id + '|' + dateStr;
         if (selSet[k]) delete selSet[k]; else selSet[k] = true;
-        renderDaily(); updateSelBar();
+        refreshSelViews(); updateSelBar();
         return;
       }
       if (closeOpenSwipe()) return;                              // 열린 삭제 버튼이 있으면 먼저 닫기만
@@ -1048,15 +1048,19 @@
     }
     /* ===== 길게 눌러 일괄 선택 모드 ===== */
     var selMode = false, selSet = {};
+    function refreshSelViews() {   // 선택모드 화면 갱신 (데일리 + 월간 상세 둘 다)
+      renderDaily();
+      if (typeof selectedDate !== 'undefined' && selectedDate) { try { renderDayDetail(selectedDate); } catch (e) {} }
+    }
     function enterSelMode(id, dateStr) {
       selMode = true; selSet = {}; selSet[id + '|' + dateStr] = true;
       if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) {}
-      closeOpenSwipe(); renderDaily(); updateSelBar();
+      closeOpenSwipe(); refreshSelViews(); updateSelBar();
     }
     function exitSelMode() {
       selMode = false; selSet = {};
       document.getElementById('sel-bar').classList.remove('show');
-      renderDaily();
+      refreshSelViews();
     }
     function updateSelBar() {
       var n = Object.keys(selSet).length;
@@ -1121,7 +1125,7 @@
         if (wrap.closest('#daily-list') || wrap.closest('#day-detail')) {
           window.__lpT = setTimeout(function () {
             if (sw && !sw.moved) {
-              window.__lpEnd = Date.now(); sw = null;
+              window.__lpFired = true; sw = null;   // 손 뗄 때까지 탭 억제 유지
               enterSelMode(parseInt(wrap.dataset.id, 10), wrap.dataset.date);
             }
           }, 600);
@@ -1142,6 +1146,7 @@
       }, { passive: false });
       document.addEventListener('touchend', function () {
         clearTimeout(window.__lpT);
+        if (window.__lpFired) { window.__lpEnd = Date.now(); window.__lpFired = false; }   // 떼는 순간부터 400ms 탭 무시
         if (!sw) return;
         var item = sw.item;
         item.style.transition = 'transform 0.2s';
