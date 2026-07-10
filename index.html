@@ -318,7 +318,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v85</div>
+      <div class="app-ver">v86</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -465,7 +465,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v85</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v86</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -1025,7 +1025,7 @@
       var selbox = selMode ? '<span class="selbox' + (selSet[row.id + '|' + dateStr] ? ' on' : '') + '">✓</span>' : '';
       return '<div class="item-wrap" data-id="' + row.id + '" data-date="' + dateStr + '">' +
                '<div class="item-del" onclick="askDeleteItem(event,' + row.id + ',\'' + dateStr + '\')">🗑 삭제</div>' +
-               '<div class="item' + (isNow ? ' now' : '') + (row.todo ? ' todo' : '') + '" style="border-left-color:' + color + '" onclick="itemTap(event,' + row.id + ',\'' + dateStr + '\')">' +
+               '<div class="item' + (isNow ? ' now' : '') + (row.todo ? ' todo' : '') + '" style="border-left-color:' + color + '" onclick="itemTap(event,' + row.id + ',\'' + dateStr + '\')" oncontextmenu="return itemRightClick(event,' + row.id + ',\'' + dateStr + '\')">' +
                  selbox + timeCell +
                  '<span class="ititle">' + row.title + ' ' + badge + nowBadge + '</span>' + whoTag +
                '</div></div>';
@@ -1040,6 +1040,12 @@
     }
 
     /* ===== 왼쪽으로 밀어서 삭제 버튼 열기 → 눌러야 확인 ===== */
+    function itemRightClick(ev, id, dateStr) {   // PC 마우스 우클릭 → 바로 삭제 확인창
+      if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+      if (selMode) return false;   // 선택 모드일 땐 무시
+      askDeleteItem(ev, id, dateStr);
+      return false;
+    }
     function itemTap(ev, id, dateStr) {
       if (Date.now() - (window.__swipeEnd || 0) < 300) return;   // 방금 민 거면 열지 않음
       if (Date.now() - (window.__lpEnd || 0) < 400) return;      // 방금 길게 누른 거면 무시
@@ -1202,7 +1208,7 @@
       var heads = whoList.length > 1 ? '<div class="tg-heads">' + whoList.map(function (w) { return '<span style="color:' + people[w].color + '">' + people[w].name + '</span>'; }).join('') + '</div>' : '';
       var tds = items.filter(function (r) { return r.todo && whoList.indexOf(r.who) >= 0; });
       var todoBar = tds.length ? '<div class="tg-todos">' + tds.map(function (r) {
-        return '<span class="tg-todo" style="border-color:' + people[r.who].color + '" onclick="openEdit(' + r.id + ',\'' + dateStr + '\')">📝 ' + escapeHtml(r.title) + '</span>';
+        return '<span class="tg-todo" style="border-color:' + people[r.who].color + '" onclick="openEdit(' + r.id + ',\'' + dateStr + '\')" oncontextmenu="return itemRightClick(event,' + r.id + ',\'' + dateStr + '\')">📝 ' + escapeHtml(r.title) + '</span>';
       }).join('') + '</div>' : '';
       var html = heads + todoBar + '<div class="tg" style="height:' + (H + top + 10) + 'px"><div class="tg-scrollstrip"></div>';
       for (var h = 0; h <= 24; h++) {
@@ -1226,6 +1232,7 @@
             if (p[0] >= p[1]) return;
             var bt = top + p[0] * PXMIN, bh = Math.max(16, (p[1] - p[0]) * PXMIN - 2);
             html += '<div class="tgb" data-id="' + r.id + '" data-date="' + dateStr + '" data-drag="' + (cross ? '0' : '1') + '"' +
+                    ' oncontextmenu="return itemRightClick(event,' + r.id + ',\'' + dateStr + '\')"' +
                     ' style="top:' + bt.toFixed(1) + 'px;height:' + bh.toFixed(1) + 'px;left:' + left + ';width:' + width + ';background:' + col + '">' +
                     '<div class="t">' + escapeHtml(r.title) + '</div><div class="tm">' + r.start + '–' + r.end + '</div>' +
                     (!cross ? '<div class="rzt cl"></div><div class="rzt cr"></div><div class="rz cl"></div><div class="rz cr"></div>'
