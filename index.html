@@ -317,7 +317,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v79</div>
+      <div class="app-ver">v82</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -410,7 +410,7 @@
         <input type="file" id="xls-file" accept=".xlsx,.xls" onchange="handleXlsFile(this)" style="width:100%;font-size:14px;margin-bottom:10px" />
         <div class="ow-note" id="xls-preview"></div>
         <p class="form-msg" id="xls-msg"></p>
-        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeXls()">취소</button><button class="btn btn-save" id="xls-apply" onclick="applyXls()" disabled>오늘에 적용</button></div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeXls()">취소</button><button class="btn btn-save" id="xls-apply" onclick="applyXls()" disabled>적용</button></div>
       </div>
     </div>
 
@@ -464,7 +464,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v79</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v82</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -1068,20 +1068,25 @@
       document.getElementById('sel-bar').classList.toggle('show', selMode);
     }
     function askBulkDelete() {
-      var n = Object.keys(selSet).length;
-      if (!n) { showToast('선택된 일정이 없어요'); return; }
-      document.getElementById('bulkdel-text').innerHTML = '선택한 일정 <b>' + n + '개</b>를 삭제하시겠습니까?<br>이 날짜에서만 지워져요. (실수하면 수정내역 ↩️ 되돌리기)';
+      var keys = Object.keys(selSet);
+      if (!keys.length) { showToast('선택된 일정이 없어요'); return; }
+      document.getElementById('sel-bar').classList.remove('show');   // 확인창 뜨는 동안 선택 바 숨김 (겹침 방지)
+      document.getElementById('bulkdel-text').innerHTML = '선택한 일정 <b>' + keys.length + '개</b>를 삭제하시겠습니까?<br><span class="sub">이 날짜에서만 지워져요 · 실수하면 수정내역 ↩️ 되돌리기</span>';
       document.getElementById('bulkdel-modal').classList.add('open');
     }
-    function closeBulkDel() { document.getElementById('bulkdel-modal').classList.remove('open'); }
+    function closeBulkDel() {
+      document.getElementById('bulkdel-modal').classList.remove('open');
+      if (selMode) document.getElementById('sel-bar').classList.add('show');   // 취소하면 선택 바 다시 표시
+    }
     function confirmBulkDelete() {
       var keys = Object.keys(selSet);
       keys.forEach(function (k) {
         var parts = k.split('|');
         deleteItemForDate(parseInt(parts[0], 10), parts[1]);
       });
-      closeBulkDel(); exitSelMode();
-      showToast('일정 ' + keys.length + '개를 삭제했어요');
+      document.getElementById('bulkdel-modal').classList.remove('open');
+      exitSelMode();
+      showToast('일정 ' + keys.length + '개를 이 날짜에서 삭제했어요');
     }
     var openSwipeItem = null;   // 지금 삭제 버튼이 열려있는 .item
     function closeOpenSwipe() {
@@ -1138,7 +1143,7 @@
         var eff = sw.base + dx;                          // 이미 열린 상태면 거기서 이어서
         if (eff > 0) eff = 0;
         if (eff < -OPEN) eff = -OPEN;                    // 삭제 버튼 너비까지만 (더 밀려도 안 넘어감)
-        sw.dx = dx; sw.eff = eff; if (Math.abs(dx) > 6) sw.moved = true;
+        sw.dx = dx; sw.eff = eff; if (Math.abs(dx) > 12) sw.moved = true;   // 실수 스와이프 방지 (임계값 상향)
         if (sw.moved || Math.abs(dy) > 8) clearTimeout(window.__lpT);
         sw.item.style.transition = 'none';
         sw.item.style.transform = 'translateX(' + eff + 'px)';
@@ -1387,6 +1392,7 @@
     /* ===== 데일리 (오늘) ===== */
     var currentPerson = 'all';
     function renderDaily() {
+      clearTimeout(window.__lpT);   // 목록 다시 그릴 때 대기중 길게누르기 취소 (오작동 방지)
       var items = itemsForDate(todayStr);
       document.getElementById('daily-clock').innerHTML = buildClockSVG(items, currentPerson, true);
       document.getElementById('daily-legend').innerHTML = legendHTML(legendEntries(currentPerson, segmentsFor(items, currentPerson)));
@@ -2130,7 +2136,7 @@
       var sum = ['dad', 'mom', 'child'].filter(function (w) { return events[w].length; })
         .map(function (w) { return people[w].name + ' ' + events[w].length + '개'; }).join(' · ');
       document.getElementById('xls-preview').innerHTML = '<b>변환 결과:</b> ' + sum + (skipped ? ' <span style="color:var(--muted)">(못 읽은 행 ' + skipped + '개 건너뜀)</span>' : '') +
-        '<br>「오늘에 적용」을 누르면 <b>오늘 하루</b>가 이 내용으로 바뀌어요. 반복하려면 이어서 <b>일괄 적용</b>을 쓰세요.';
+        '<br>「적용」을 누르면 <b>' + ((applyAnchor() === todayStr) ? '오늘 하루' : (parseYmd(applyAnchor()).getMonth() + 1) + '월 ' + parseYmd(applyAnchor()).getDate() + '일') + '</b>이 이 내용으로 바뀌어요. 반복하려면 이어서 <b>일괄 적용</b>을 쓰세요.';
       document.getElementById('xls-msg').textContent = '';
       document.getElementById('xls-apply').disabled = false;
     }
@@ -2140,28 +2146,30 @@
     }
     function applyXls() {
       if (!xlsParsed) return;
+      var tgt = applyAnchor();   // 월간에서 특정일 선택 시 그 날, 아니면 오늘
       var persons = ['dad', 'mom', 'child'].filter(function (w) { return xlsParsed[w].length; });
-      // 오늘 그 사람들 일정 전부 치우기 (기본은 그날만 가림, 예외는 그날만 제외)
+      // 기준일 그 사람들 일정 전부 치우기 (기본은 그날만 가림, 예외는 그날만 제외)
       persons.forEach(function (w) {
-        itemsForDate(todayStr).filter(function (r) { return r.who === w; }).forEach(function (r) {
-          if (isBaseItem(r)) { if (!hiddenOn(r.id, todayStr)) hides.push({ baseId: r.id, scope: 'day', date: todayStr }); }
+        itemsForDate(tgt).filter(function (r) { return r.who === w; }).forEach(function (r) {
+          if (isBaseItem(r)) { if (!hiddenOn(r.id, tgt)) hides.push({ baseId: r.id, scope: 'day', date: tgt }); }
           else if (r.scope === 'day') exceptions = exceptions.filter(function (x) { return x.id !== r.id; });
-          else detachDate(r, todayStr);
+          else detachDate(r, tgt);
         });
       });
-      // 엑셀 내용을 오늘 하루 일정으로 넣기
+      // 엑셀 내용을 기준일 하루 일정으로 넣기
       var cnt = 0;
       persons.forEach(function (w) {
         xlsParsed[w].forEach(function (ev) {
-          var xe = newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: xlsCatFor(ev.title), editor: deviceWho }, { scope: 'day', date: todayStr });
+          var xe = newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: xlsCatFor(ev.title), editor: deviceWho }, { scope: 'day', date: tgt });
           xe.bulk = true;   // 엑셀 루틴 원본 표식 → 일괄 적용하면 반복에 흡수돼 중복이 안 남아요
           exceptions.push(xe);
           cnt++;
         });
       });
-      logChange('일괄', '엑셀 가져오기 (' + persons.map(function (w) { return people[w].name; }).join('·') + ' ' + cnt + '개)', '이 날짜만', deviceWho);
+      var dtxt = (tgt === todayStr) ? '오늘' : (parseYmd(tgt).getMonth() + 1) + '월 ' + parseYmd(tgt).getDate() + '일';
+      logChange('일괄', '엑셀 가져오기 (' + persons.map(function (w) { return people[w].name; }).join('·') + ' ' + cnt + '개)', dtxt, deviceWho);
       saveAll(); refreshAll(); closeXls();
-      showToast('✅ 엑셀 일과 ' + cnt + '개를 오늘에 적용했어요');
+      showToast('✅ 엑셀 일과 ' + cnt + '개를 ' + dtxt + '에 적용했어요');
     }
     function downloadXlsTemplate() {
       ensureXLSX(function () {
@@ -2177,6 +2185,10 @@
 
     /* ===== 오늘 일과표 일괄 적용 ===== */
     var bulkScope = 'weekFrom', bulkDays = [], bulkWho = [];
+    function applyAnchor() {   // 일괄/엑셀 적용 기준 날짜: 월간에서 특정일 선택 시 그 날부터, 아니면 오늘
+      if (currentTab === 'month' && selectedDate) return ymdOf(monthState.y, monthState.m, selectedDate);
+      return todayStr;
+    }
     function toggleBulkWho(w) {
       var k = bulkWho.indexOf(w);
       if (k >= 0) bulkWho.splice(k, 1); else bulkWho.push(w);
@@ -2234,13 +2246,14 @@
     }
     function toggleBulkWd(i) { var k = bulkDays.indexOf(i); if (k >= 0) bulkDays.splice(k, 1); else bulkDays.push(i); buildBulkWd(); updateBulkHint(); }
     function updateBulkHint() {
-      var a = parseYmd(todayStr), mo = a.getMonth() + 1, dy = a.getDate(), yr = a.getFullYear(), sun = sundayOf(a), t;
+      var anc = applyAnchor();
+      var a = parseYmd(anc), mo = a.getMonth() + 1, dy = a.getDate(), yr = a.getFullYear(), sun = sundayOf(a), t;
       if (bulkScope === 'weekFrom') t = mo + '월 ' + dy + '일부터 ' + (sun.getMonth() + 1) + '월 ' + sun.getDate() + '일(일요일)까지 이 일과표를 써요.';
       else if (bulkScope === 'month') t = yr + '년 ' + mo + '월 한 달 전체를 이 일과표로 바꿔요.';
       else if (bulkScope === 'year') t = yr + '년 한 해 전체를 이 일과표로 바꿔요.';
       else if (bulkScope === 'weekdays') {
         if (!bulkDays.length) t = '반복할 요일을 하나 이상 골라주세요.';
-        else { var names = bulkDays.slice().sort(function (x, y) { return x - y; }).map(function (i) { return WD_NAMES[i]; }).join('·'); var u = document.getElementById('bulk-wd-until').value; t = '매주 ' + names + '요일을 이 일과표로 바꿔요' + (u ? ' (' + u + '까지)' : ' (계속)') + '.'; }
+        else { var names = bulkDays.slice().sort(function (x, y) { return x - y; }).map(function (i) { return WD_NAMES[i]; }).join('·'); var u = document.getElementById('bulk-wd-until').value; t = mo + '월 ' + dy + '일부터 매주 ' + names + '요일을 이 일과표로 바꿔요' + (u ? ' (' + u + '까지)' : ' (계속)') + '.'; }
       }
       else if (bulkScope === 'nthwd') {
         if (bulkNwDay === null) t = '몇째 주 무슨 요일인지 골라주세요.';
@@ -2250,12 +2263,12 @@
       document.getElementById('bulk-hint').textContent = t;
     }
     function bulkSf() {
-      var a = parseYmd(todayStr);
-      if (bulkScope === 'weekFrom') return { scope: 'weekFrom', date: todayStr, weekEnd: ymd(sundayOf(a)) };
-      if (bulkScope === 'month') return { scope: 'month', ym: todayStr.slice(0, 7) };
+      var anc = applyAnchor(), a = parseYmd(anc);
+      if (bulkScope === 'weekFrom') return { scope: 'weekFrom', date: anc, weekEnd: ymd(sundayOf(a)) };
+      if (bulkScope === 'month') return { scope: 'month', ym: anc.slice(0, 7) };
       if (bulkScope === 'year') return { scope: 'year', y: a.getFullYear() };
-      if (bulkScope === 'weekdays') return { scope: 'weekdays', days: bulkDays.slice(), from: todayStr, until: (document.getElementById('bulk-wd-until').value || '') };
-      if (bulkScope === 'nthwd') return { scope: 'nthwd', nth: bulkNth, day: bulkNwDay, from: todayStr, until: (document.getElementById('bulk-nw-until').value || '') };
+      if (bulkScope === 'weekdays') return { scope: 'weekdays', days: bulkDays.slice(), from: anc, until: (document.getElementById('bulk-wd-until').value || '') };
+      if (bulkScope === 'nthwd') return { scope: 'nthwd', nth: bulkNth, day: bulkNwDay, from: anc, until: (document.getElementById('bulk-nw-until').value || '') };
       return { scope: 'base' };
     }
     function applyBulk() {   // 1차: 검증 후 경고 확인창
@@ -2263,11 +2276,13 @@
       if (!bulkWho.length) { formError(msg, '누구의 일과를 복사할지 골라주세요.'); return; }
       if (bulkScope === 'weekdays' && !bulkDays.length) { formError(msg, '반복할 요일을 하나 이상 골라주세요.'); return; }
       if (bulkScope === 'nthwd' && bulkNwDay === null) { formError(msg, '몇째 주 무슨 요일인지 골라주세요.'); return; }
-      var cnt = itemsForDate(todayStr).filter(function (r) { return bulkWho.indexOf(r.who) >= 0; }).length;
+      var anc = applyAnchor();
+      var cnt = itemsForDate(anc).filter(function (r) { return bulkWho.indexOf(r.who) >= 0; }).length;
       if (!cnt) { formError(msg, '복사할 일정이 없어요.'); return; }
       var label = { weekFrom: '이 주', month: '이 달', year: '올해', weekdays: '요일 반복', nthwd: '매월 몇째 주', base: '매일' }[bulkScope];
       var names = bulkWho.map(function (w) { return people[w].name; }).join('·');
-      document.getElementById('bulkc-text').innerHTML = '<b>' + names + '</b>의 <b>' + label + '</b> 루틴이 오늘 모습(일정 ' + cnt + '개)으로 바뀌어요.<br>' + document.getElementById('bulk-hint').textContent;
+      var srcTxt = (anc === todayStr) ? '오늘 모습' : (parseYmd(anc).getMonth() + 1) + '월 ' + parseYmd(anc).getDate() + '일 모습';
+      document.getElementById('bulkc-text').innerHTML = '<b>' + names + '</b>의 <b>' + label + '</b> 루틴이 ' + srcTxt + '(일정 ' + cnt + '개)으로 바뀌어요.<br>' + document.getElementById('bulk-hint').textContent;
       document.getElementById('bulkc-modal').classList.add('open');
     }
     function closeBulkConfirm() { document.getElementById('bulkc-modal').classList.remove('open'); }
@@ -2277,7 +2292,8 @@
       var persons = bulkWho.slice();
       var sf = bulkSf();
       // 1) 오늘 모습 스냅샷 (정리하기 전에 먼저 떠놓기)
-      var snap = itemsForDate(todayStr).filter(function (r) { return persons.indexOf(r.who) >= 0; })
+      var srcDate = applyAnchor();
+      var snap = itemsForDate(srcDate).filter(function (r) { return persons.indexOf(r.who) >= 0; })
         .map(function (r) { return { who: r.who, start: r.start, end: r.end, title: r.title, pin: !!r.pin, cat: r.cat || '', editor: deviceWho }; });
       if (!snap.length) { formError(msg, '복사할 일정이 없어요.'); return; }
       // 자동 정리 불가 조합 미리 확인 (이전 일괄분 중 끝없는 요일반복)
@@ -2303,8 +2319,8 @@
         schedule = schedule.filter(function (r) { return persons.indexOf(r.who) < 0; });   // 그 사람들 기본 루틴 교체
         snap.forEach(function (v) { var b = { id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: v.pin, cat: v.cat, editor: deviceWho }; schedule.push(b); added.push(b); });
         // 오늘 하루짜리 수정들은 이제 기본에 반영됐으니 오늘 예외·가림은 정리
-        exceptions = exceptions.filter(function (E) { return !(persons.indexOf(E.who) >= 0 && E.scope === 'day' && E.date === todayStr); });
-        hides = hides.filter(function (h) { return !(h.scope === 'day' && h.date === todayStr); });
+        exceptions = exceptions.filter(function (E) { return !(persons.indexOf(E.who) >= 0 && E.scope === 'day' && E.date === srcDate); });
+        hides = hides.filter(function (h) { return !(h.scope === 'day' && h.date === srcDate); });
       } else {
         schedule.forEach(function (b) { if (persons.indexOf(b.who) >= 0) { var hh = mergeInto({ baseId: b.id }, bulkSf()); hh.bulk = true; hides.push(hh); } });   // 범위 동안 기본 가리기(일괄표식)
         snap.forEach(function (v) { var ex = newEx(v, bulkSf()); ex.bulk = true; exceptions.push(ex); added.push(ex); });          // 오늘 모습을 범위에 복사 (수정 배지는 안 붙임)
