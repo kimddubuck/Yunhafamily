@@ -220,6 +220,7 @@
     .view-toggle button { border: 1.5px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer; font-family: inherit; color: var(--ink); }
     .view-toggle button.on { background: var(--accent); color: #fff; border-color: transparent; }
     .view-toggle .bulk-btn { margin-left: auto; color: var(--accent); border-color: var(--accent); font-weight: 600; }
+    .view-toggle .bulk-btn ~ .bulk-btn { margin-left: 6px; }
     .bulk-sum { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
     #daily-grid { background: var(--card); border: 1px solid var(--line); border-radius: 16px; margin-top: 14px; overflow: hidden; }
     .tg-heads { display: flex; padding: 10px 30px 0 44px; }
@@ -317,7 +318,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v82</div>
+      <div class="app-ver">v85</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -464,7 +465,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v82</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v85</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -673,15 +674,19 @@
       return JSON.stringify({ base: schedule, exceptions: exceptions, hides: hides, categories: categories });
     }
     var lastSnapshot = null;   // 직전 변경 뒤의 상태 = 다음 변경의 '되돌릴 지점'
+    var undoSnaps = {};        // 이 폰 세션의 되돌리기 스냅샷 (t → 직전 상태). 동기화로 changeLog가 덮여도 유지
     function logChange(act, title, whenDesc, who) {
-      var entry = { t: Date.now(), who: who || '', act: act, title: title, when: whenDesc || '', undo: lastSnapshot };
+      var t = Date.now();
+      if (lastSnapshot) undoSnaps[t] = lastSnapshot;   // 이 폰에서 되돌릴 수 있게 따로 보관
+      var entry = { t: t, who: who || '', act: act, title: title, when: whenDesc || '', undo: lastSnapshot };
       changeLog.unshift(entry);
       if (changeLog.length > 30) changeLog.length = 30;   // 최근 30건만 보관
       lastSnapshot = snapState();   // 이 변경 이후 상태를 다음 되돌리기 기준으로
     }
+    function __undoSnapFor(h) { return (h && h.undo) ? h.undo : (h ? undoSnaps[h.t] : null); }
     function undoTo(idx) {
       var entry = changeLog[idx];
-      if (!entry || !entry.undo) { showToast('되돌릴 수 있는 시점이 아니에요'); return; }
+      if (!entry || !__undoSnapFor(entry)) { showToast('되돌릴 수 있는 시점이 아니에요'); return; }
       pendingUndo = idx;
       document.getElementById('undo-text').innerHTML = '<b>' + escapeHtml((entry.act) + ' · ' + entry.title) + '</b><br>이 변경 <b>직전 상태</b>로 되돌릴까요? 이후에 한 변경들도 함께 취소돼요.';
       document.getElementById('undo-modal').classList.add('open');
@@ -691,9 +696,10 @@
     function confirmUndo() {
       var idx = pendingUndo; closeUndo();
       var entry = changeLog[idx];
-      if (!entry || !entry.undo) return;
+      var snap = __undoSnapFor(entry);
+      if (!entry || !snap) return;
       try {
-        var st = JSON.parse(entry.undo);
+        var st = JSON.parse(snap);
         schedule = st.base || []; exceptions = st.exceptions || []; hides = st.hides || [];
         if (st.categories && st.categories.length) { categories = st.categories; normalizeCats(); rebuildCatColors(); buildCatButtons(); }
       } catch (e) { showToast('되돌리기에 실패했어요'); return; }
@@ -1512,7 +1518,7 @@
         return '<button class="person' + (on ? ' active' : '') + '" data-person="' + k + '" onclick="pickDetailPerson(this)"' + style + '>' + people[k].name + '</button>';
       }).join('');
       var clock = '<div class="clock-card"><div>' + buildClockSVG(items, who, full === todayStr) + '</div><div class="legend">' + legendHTML(legendEntries(who, segmentsFor(items, who))) + '</div></div>';
-      var toggle = '<div class="view-toggle"><button id="mvt-list" class="' + (monthView === 'list' ? 'on' : '') + '" onclick="setMonthView(\'list\')">목록</button><button id="mvt-grid" class="' + (monthView === 'grid' ? 'on' : '') + '" onclick="setMonthView(\'grid\')">시간표</button></div>';
+      var toggle = '<div class="view-toggle"><button id="mvt-list" class="' + (monthView === 'list' ? 'on' : '') + '" onclick="setMonthView(\'list\')">목록</button><button id="mvt-grid" class="' + (monthView === 'grid' ? 'on' : '') + '" onclick="setMonthView(\'grid\')">시간표</button><button class="bulk-btn" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" onclick="openBulk()">📋 일괄 적용</button></div>';
       document.getElementById('day-detail').innerHTML =
         '<h3>' + (m + 1) + '월 ' + d + '일 (' + dow + ') 일정</h3>' +
         '<div class="people" style="margin-top:12px">' + picker + '</div>' + clock + toggle +
@@ -1940,7 +1946,8 @@
         var mine = h.who && h.who === deviceWho;
         var who = h.who ? people[h.who].name : '미지정';
         var actCls = h.act === '삭제' ? 'del' : h.act === '추가' ? 'add' : 'edit';
-        var undoBtn = h.undo ? '<button class="hist-undo" onclick="undoTo(' + i + ')">↩️ 되돌리기</button>' : '';
+        var hasUndo = h.undo || undoSnaps[h.t];
+        var undoBtn = hasUndo ? '<button class="hist-undo" onclick="undoTo(' + i + ')">↩️ 되돌리기</button>' : '';
         return '<div class="hist-item"><div class="hist-top"><span class="hist-who' + (mine ? ' mine' : '') + '">' + (mine ? '✓ ' : '') + who + '</span><span class="hist-time">' + fmtHistTime(h.t) + '</span></div>' +
                '<div class="hist-body"><span class="hist-act ' + actCls + '">' + h.act + '</span> ' + escapeHtml(h.title) + (h.when ? ' <span class="hist-when">(' + h.when + ')</span>' : '') + '</div>' + undoBtn + '</div>';
       }).join('');
