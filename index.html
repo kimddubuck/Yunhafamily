@@ -318,7 +318,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v88</div>
+      <div class="app-ver">v89</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -465,7 +465,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v88</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v89</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -1346,7 +1346,10 @@
         var top = 12;
         var mins = Math.round((y - top) / PXMIN);   // 클릭 지점의 '분'
         if (mins < 0 || mins >= 1440) return;
-        var dateStr = grid.__date || todayStr;
+        // 날짜: 이 격자(또는 내부 month-grid)의 __date, 없으면 월간 선택일/오늘
+        var dateBox = grid.__date ? grid : (document.getElementById('month-grid') && grid.contains(document.getElementById('month-grid')) ? document.getElementById('month-grid') : null);
+        var dateStr = (dateBox && dateBox.__date) ? dateBox.__date :
+          ((currentTab === 'month' && selectedDate) ? ymdOf(monthState.y, monthState.m, selectedDate) : todayStr);
         var person = (grid.id === 'daily-grid') ? currentPerson : monthDetailPerson;
         var whoList = (person === 'all' || !person) ? ['dad', 'mom', 'child'] : [person];
         var who = whoList[0];
@@ -1424,13 +1427,7 @@
       // PC 미리보기용 (마우스)
       grid.addEventListener('mousedown', function (e) {
         var b = e.target.closest ? e.target.closest('.tgb') : null;
-        if (!b) {
-          // 빈 공간 클릭 → 새 일정 (todo 바 제외)
-          if (!e.target.closest('.tg-todo, .tg-todos') && e.target.closest('.tg')) {
-            grid.__mdEmpty = { x: e.clientX, y: e.clientY };
-          }
-          return;
-        }
+        if (!b) return;
         var rz = e.target.classList.contains('rz'), rzt = e.target.classList.contains('rzt');
         var rect = b.getBoundingClientRect();
         var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
@@ -1438,6 +1435,12 @@
         if (!rz && !rzt && b.dataset.drag !== '1') { if (center) openEdit(Number(b.dataset.id), b.dataset.date); return; }
         g = { b: b, id: Number(b.dataset.id), date: b.dataset.date, mode: rzt ? 'resizeTop' : rz ? 'resize' : 'move', y0: e.clientY, dy: 0, act: false, moved: false, t0: Date.now(), center: center };
         e.preventDefault();
+      });
+      // PC: 빈 공간 더블클릭 → 그 구간으로 새 일정
+      grid.addEventListener('dblclick', function (e) {
+        if (e.target.closest('.tgb') || e.target.closest('.tg-todo, .tg-todos')) return;
+        if (!e.target.closest('.tg')) return;
+        emptyTap(e.clientX, e.clientY, grid);
       });
       }
       attachGridHandlers(document.getElementById('daily-grid'));
@@ -1448,15 +1451,7 @@
         if (!g.act && Math.abs(g.dy) > 5) { g.act = true; window.__tgDragging = true; g.b.classList.add('drag'); }
         if (g.act) { g.moved = true; paint(g, e); }
       });
-      document.addEventListener('mouseup', function (e) {
-        // PC: 빈 공간 클릭(거의 안 움직임)이면 새 일정
-        var grids = [document.getElementById('daily-grid'), document.getElementById('day-detail'), document.getElementById('month-grid')];
-        grids.forEach(function (gr) {
-          if (gr && gr.__mdEmpty) {
-            var md = gr.__mdEmpty; gr.__mdEmpty = null;
-            if (e && Math.abs(e.clientX - md.x) < 6 && Math.abs(e.clientY - md.y) < 6) emptyTap(md.x, md.y, gr);
-          }
-        });
+      document.addEventListener('mouseup', function () {
         if (!g) return;
         var gg = g; g = null;
         if (gg.act) { gg.b.classList.remove('drag'); clearGhost(gg); commit(gg); }
