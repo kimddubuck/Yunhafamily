@@ -94,11 +94,11 @@
       /* 가로: 하단 탭바를 낮게 (화면 세로 공간 확보) */
       .tab { padding: 3px 0 2px; font-size: 11px; gap: 1px; }
       .tab svg { width: 17px; height: 17px; }
-      /* 월간: 달력을 화면 세로로 꽉 채우기 (아래 여백 제거) */
-      #screen-month.active { display: flex; flex-direction: column; height: calc(100dvh - 88px); }
-      #screen-month .cal-grid { flex: 1; grid-auto-rows: 1fr; }
-      .cal-cell { min-height: 0; }
-      #day-detail { display: none; }
+      /* 월간: 달력이 첫 화면을 꽉 채우고, 스크롤하면 아래에 날짜 상세(시계·목록·시간표) */
+      #screen-month.active { display: block; }
+      #screen-month .cal-grid { grid-auto-rows: minmax(11vh, 1fr); }
+      #screen-month #day-detail { display: block; margin-top: 16px; }
+      #day-detail .clock-card svg { max-width: 470px; }
       /* 가로일 땐 헤더를 한 줄로 납작하게 (세로 공간 절약) */
       .header { padding: 8px 20px 6px; display: flex; align-items: center; gap: 10px; }
       .header .head-row { display: contents; }
@@ -318,7 +318,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v89</div>
+      <div class="app-ver">v90</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -465,7 +465,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v89</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v90</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
