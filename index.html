@@ -318,7 +318,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v90</div>
+      <div class="app-ver">v91</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -465,7 +465,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v90</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v91</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -1257,15 +1257,19 @@
     function carveForDate(E, D, ns, ne, markBulk) {
       var t = trimTimes(toMin(E.start), toMin(E.end), ns, ne);
       if (t.type === 'none') return;
+      var parts = t.parts || [[t.s, t.e]];
       if (isBaseItem(E)) {
         hides.push({ baseId: E.id, scope: 'day', date: D });
-        if (t.type === 'trim') { var c1 = copyAsEx(E, { scope: 'day', date: D }, t.s, t.e); if (markBulk) c1.bulk = true; exceptions.push(c1); }
+        if (t.type === 'trim') parts.forEach(function (p) { var c1 = copyAsEx(E, { scope: 'day', date: D }, p[0], p[1]); if (markBulk) c1.bulk = true; exceptions.push(c1); });
       } else if (E.scope === 'day') {
         if (t.type === 'delete') exceptions = exceptions.filter(function (r) { return r.id !== E.id; });
-        else { E.start = toHM(t.s); E.end = toHM(t.e); }
+        else {
+          E.start = toHM(parts[0][0]); E.end = toHM(parts[0][1]);   // 첫 조각은 원본에
+          parts.slice(1).forEach(function (p) { var cN = copyAsEx(E, { scope: 'day', date: D }, p[0], p[1]); if (markBulk || E.bulk) cN.bulk = E.bulk; exceptions.push(cN); });   // 뒷조각은 복사로
+        }
       } else {
         detachDate(E, D);
-        if (t.type === 'trim') { var c2 = copyAsEx(E, { scope: 'day', date: D }, t.s, t.e); if (markBulk || E.bulk) c2.bulk = true; exceptions.push(c2); }
+        if (t.type === 'trim') parts.forEach(function (p) { var c2 = copyAsEx(E, { scope: 'day', date: D }, p[0], p[1]); if (markBulk || E.bulk) c2.bulk = true; exceptions.push(c2); });
       }
     }
     (function () {
@@ -2463,7 +2467,8 @@
       m.forEach(function (p) { if (p[0] > cur) rem.push([cur, p[0]]); cur = Math.max(cur, p[1]); });
       if (cur < eE) rem.push([cur, eE]);
       if (!rem.length) return { type: 'delete' };
-      return { type: 'trim', s: rem[0][0] % 1440, e: rem[0][1] % 1440 };   // 두 조각으로 갈라지면 앞부분을 남겨요
+      var parts = rem.map(function (p) { return [p[0] % 1440, p[1] % 1440]; });
+      return { type: 'trim', s: parts[0][0], e: parts[0][1], parts: parts };   // 갈라지면 모든 조각 반환
     }
     function copyAsEx(E, sf, s, e) { return mergeInto({ id: nextId++, who: E.who, start: toHM(s), end: toHM(e), title: E.title, pin: !!E.pin, cat: E.cat || '', editor: deviceWho }, sf); }
     // 범위 → 실제 날짜 나열 (유한 범위만, 최대 400일)
@@ -2603,8 +2608,16 @@
       }
 
       if (conflicts.length) {
+        if (formScope === 'day') {   // 이 날짜만: 새 일정 시간을 지키고, 겹친 기존 일정을 앞뒤로 잘라 자연스럽게 끼움
+          var cd = editingItem ? editContextDate : formAnchor;
+          conflicts.forEach(function (cf) { carveForDate(cf, cd, toMin(start), toMin(end)); });
+          var cNames = conflicts.map(function (c) { return c.title; }).join('·');
+          logChange('조정', people[formWho].name + ' ' + cNames + ' (「' + title + '」 자리 비움)', '이 날짜만', formEditor);
+          commitSave();
+          return;
+        }
         var c0 = conflicts[0];
-        formError(msg, '이 시간엔 이미 「' + c0.title + '」(' + c0.start + '–' + c0.end + ')이(가) 있어요. 겹치지 않게 해주세요.');
+        formError(msg, '이 시간엔 이미 「' + c0.title + '」(' + c0.start + '–' + c0.end + ')이(가) 있어요. 반복 일정에 끼워 넣으려면 범위를 「이 날짜만」으로 하세요.');
         return;
       }
       commitSave();
