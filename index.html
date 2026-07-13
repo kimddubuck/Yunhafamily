@@ -135,6 +135,7 @@
     .sel-bar .sb-cancel { background: rgba(255,255,255,0.18); color: #fff; }
     .item-del { position: absolute; top: 0; bottom: 0; right: 0; width: 84px; background: #C0392B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; gap: 4px; cursor: pointer; border-radius: 0 12px 12px 0; }
     .item { position: relative; background: var(--card); display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--line); touch-action: pan-y; }
+    .rt-chip { font-size: 11px; opacity: 0.55; margin-left: 2px; }
     .item .time { font-size: 13px; color: var(--muted); width: 96px; flex-shrink: 0; }
     .item .ititle { font-size: 15px; flex: 1; }
     .item .badge { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 1px 5px; }
@@ -318,7 +319,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v98</div>
+      <div class="app-ver">v100</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -437,6 +438,7 @@
             <button class="scope" data-scope="base"     onclick="pickBulkScope(this)">매일</button>
           </div>
           <div class="scope-hint" id="bulk-hint"></div>
+          <label class="pin-row"><input type="checkbox" id="bulk-routine" checked /><span>🔁 루틴으로 표시 <span class="sub">(나중에 새 일정·일괄이 오면 비켜줘요)</span></span></label>
           <div class="wd-box" id="bulk-range" style="display:none">
             <label class="wd-until">시작일 <input type="date" id="bulk-range-from" onchange="updateBulkHint()" /></label>
             <label class="wd-until" style="margin-top:8px">종료일 <input type="date" id="bulk-range-to" onchange="updateBulkHint()" /></label>
@@ -473,7 +475,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v98</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v100</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -565,6 +567,7 @@
             <button class="scope" data-scope="dates"    onclick="pickScope(this)">직접 선택</button>
             <button class="scope" data-scope="weekdays" onclick="pickScope(this)">요일 반복</button>
             <button class="scope" data-scope="nthwd"    onclick="pickScope(this)">몇째 주</button>
+            <button class="scope" data-scope="everyn"   onclick="pickScope(this)">N일마다</button>
             <button class="scope" data-scope="base"     onclick="pickScope(this)">매일</button>
           </div>
           <div class="scope-hint" id="scope-hint"></div>
@@ -573,6 +576,10 @@
             <div class="wd-days" id="wd-days"></div>
             <label class="wd-until">종료일 <span class="cat-note">(비우면 계속 반복)</span><input type="date" id="wd-until" onchange="updateScopeHint()" /></label>
           </div>
+          <div class="wd-box" id="en-field" style="display:none">
+            <label class="wd-until">며칠마다? <input type="number" id="en-n" min="2" max="60" value="4" style="width:64px" onchange="updateScopeHint()" /> 일마다</label>
+            <label class="wd-until" style="margin-top:8px">종료일 <span class="sub">(비우면 계속)</span><input type="date" id="en-until" onchange="updateScopeHint()" /></label>
+          </div>
           <div class="wd-box" id="nw-field" style="display:none">
             <div class="nw-nth" id="nw-nth"></div>
             <div class="wd-days" id="nw-days"></div>
@@ -580,6 +587,7 @@
           </div>
         </div>
         <label class="pin-row"><input type="checkbox" id="f-pin" /><span>월간 달력에 표시 <span class="sub">(중요 일정)</span></span></label>
+        <label class="pin-row"><input type="checkbox" id="f-routine" /><span>🔁 루틴 <span class="sub">(새 일정이 오면 자리를 비켜줘요)</span></span></label>
         <div class="field"><label>수정한 사람 <span class="cat-note">(다음에도 기억돼요)</span></label>
           <div class="editor-pick" id="editor-pick">
             <button class="edp" data-w="dad" onclick="pickEditor('dad')">아빠</button>
@@ -748,6 +756,12 @@
           if (ev.from && D < ev.from) return false;
           if (ev.until && D > ev.until) return false;
           return ev.days && ev.days.indexOf(parseYmd(D).getDay()) >= 0;
+        case 'everyn': {                                   // N일마다 반복 (요일 무관)
+          if (D < ev.from) return false;
+          if (ev.until && D > ev.until) return false;
+          var gap = Math.round((parseYmd(D) - parseYmd(ev.from)) / 86400000);
+          return gap >= 0 && gap % ev.n === 0;
+        }
         case 'nthwd': {                                    // 매월 몇째 주 특정 요일
           if (ev.from && D < ev.from) return false;
           if (ev.until && D > ev.until) return false;
@@ -1029,13 +1043,14 @@
       var badge = '';   // 「수정」 배지는 표시하지 않음 (수정내역에서 확인)
       var nowBadge = isNow ? '<span class="nowbadge">지금</span>' : '';
       var whoTag = showWho ? '<span class="who" style="color:' + color + '">' + people[row.who].name + '</span>' : '';
+      var rtChip = row.routine ? '<span class="rt-chip">🔁</span>' : '';
       var timeCell = row.todo ? '<span class="time"><span class="todo-tag">📝 메모</span></span>' : '<span class="time">' + row.start + ' – ' + row.end + '</span>';
       var selbox = selMode ? '<span class="selbox' + (selSet[row.id + '|' + dateStr] ? ' on' : '') + '">✓</span>' : '';
       return '<div class="item-wrap" data-id="' + row.id + '" data-date="' + dateStr + '">' +
                '<div class="item-del" onclick="askDeleteItem(event,' + row.id + ',\'' + dateStr + '\')">🗑 삭제</div>' +
                '<div class="item' + (isNow ? ' now' : '') + (row.todo ? ' todo' : '') + '" style="border-left-color:' + color + '" onclick="itemTap(event,' + row.id + ',\'' + dateStr + '\')" oncontextmenu="return itemRightClick(event,' + row.id + ',\'' + dateStr + '\')">' +
                  selbox + timeCell +
-                 '<span class="ititle">' + row.title + ' ' + badge + nowBadge + '</span>' + whoTag +
+                 '<span class="ititle">' + row.title + ' ' + rtChip + badge + nowBadge + '</span>' + whoTag +
                '</div></div>';
     }
     function listHTML(items, who, dateStr) {
@@ -1817,6 +1832,7 @@
       document.getElementById('minical').style.display = showCal ? '' : 'none';
       document.getElementById('wd-field').style.display = (formScope === 'weekdays') ? '' : 'none';
       document.getElementById('nw-field').style.display = (formScope === 'nthwd') ? '' : 'none';
+      document.getElementById('en-field').style.display = (formScope === 'everyn') ? '' : 'none';
       if (showCal) { var a = parseYmd(formAnchor); miniState = { y: a.getFullYear(), m: a.getMonth() }; renderMiniCal(); }
       if (formScope === 'weekdays') buildWeekdayCircles();
       if (formScope === 'nthwd') {
@@ -1860,6 +1876,11 @@
       else if (formScope === 'month') t = yr + '년 ' + mo + '월 한 달 전체에 적용돼요.';
       else if (formScope === 'year') t = yr + '년 한 해 전체에 적용돼요.';
       else if (formScope === 'dates') t = '달력에서 날짜를 직접 고르세요. (' + pickedDates.length + '일 선택됨)';
+      else if (formScope === 'everyn') {
+        var enN = Math.max(2, Math.min(60, parseInt(document.getElementById('en-n').value, 10) || 4));
+        var enU = document.getElementById('en-until').value;
+        t = mo + '월 ' + dy + '일부터 ' + enN + '일마다 반복돼요' + (enU ? ' (' + enU.slice(5).replace('-', '월 ') + '일까지)' : ' (계속)') + '.';
+      }
       else if (formScope === 'weekdays') {
         if (!formDays.length) t = '반복할 요일을 하나 이상 골라주세요.';
         else {
@@ -1944,6 +1965,7 @@
       document.getElementById('f-start').value = '09:00';
       document.getElementById('f-end').value = '10:00';
       document.getElementById('f-pin').checked = false;
+      document.getElementById('f-routine').checked = false;
       document.getElementById('f-todo').checked = false; toggleTodoUI();
       pickEditor(deviceWho);
       setCat('');
@@ -1970,6 +1992,7 @@
       document.getElementById('f-end').value = row.end || '10:00';
       document.getElementById('f-todo').checked = !!row.todo; toggleTodoUI();
       document.getElementById('f-pin').checked = !!row.pin;
+      document.getElementById('f-routine').checked = !!row.routine;
       pickEditor(row.editor || deviceWho);
       setCat(row.cat || '');
       // 반복 일정은 '원래 범위'로 열기 → 여기서 pin 풀거나 수정하면 반복 전체에 적용돼요
@@ -2006,14 +2029,15 @@
       else if (S === 'dates') o.dates = picked.slice();
       else if (S === 'weekdays') { o.days = formDays.slice(); o.from = anchor; o.until = (document.getElementById('wd-until').value || ''); }
       else if (S === 'nthwd') { o.nth = formNth; o.day = formNwDay; o.from = anchor; o.until = (document.getElementById('nw-until').value || ''); }
+      else if (S === 'everyn') { o.n = Math.max(2, Math.min(60, parseInt(document.getElementById('en-n').value, 10) || 4)); o.from = anchor; o.until = (document.getElementById('en-until').value || ''); }
       return o;
     }
     function mergeInto(base, extra) { for (var k in extra) base[k] = extra[k]; return base; }
     function toggleTodoUI() {
       document.getElementById('time-fields').style.display = document.getElementById('f-todo').checked ? 'none' : '';
     }
-    function newEx(v, sf) { return mergeInto({ id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: !!v.pin, cat: v.cat || '', editor: v.editor || '', todo: !!v.todo }, sf); }
-    function assignVals(row, v) { row.who = v.who; row.start = v.start; row.end = v.end; row.title = v.title; row.pin = !!v.pin; row.cat = v.cat || ''; row.editor = v.editor || ''; row.todo = !!v.todo; }
+    function newEx(v, sf) { return mergeInto({ id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: !!v.pin, cat: v.cat || '', editor: v.editor || '', todo: !!v.todo, routine: !!v.routine }, sf); }
+    function assignVals(row, v) { row.who = v.who; row.start = v.start; row.end = v.end; row.title = v.title; row.pin = !!v.pin; row.cat = v.cat || ''; row.editor = v.editor || ''; row.todo = !!v.todo; row.routine = !!v.routine; }
 
     // 수정 적용 (추가와 똑같은 6개 범위)
     function applyEditScoped(row, v) {
@@ -2281,7 +2305,7 @@
       persons.forEach(function (w) {
         xlsParsed[w].forEach(function (ev) {
           var xe = newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: xlsCatFor(ev.title), editor: deviceWho }, { scope: 'day', date: tgt });
-          xe.bulk = true;   // 엑셀 루틴 원본 표식 → 일괄 적용하면 반복에 흡수돼 중복이 안 남아요
+          xe.bulk = true; xe.routine = true;   // 엑셀 일과 = 루틴 (새 일정이 오면 비켜줌)
           exceptions.push(xe);
           cnt++;
         });
@@ -2426,7 +2450,7 @@
       var sf = bulkSf();
       // 1) 오늘 모습 스냅샷 (정리하기 전에 먼저 떠놓기)
       var srcDate = applyAnchor();
-      var snap = itemsForDate(srcDate).filter(function (r) { return persons.indexOf(r.who) >= 0; })
+      var snap = itemsForDate(srcDate).filter(function (r) { return persons.indexOf(r.who) >= 0 && !(r.routine && !isBaseItem(r)); })   // 루틴 표시 예외는 '복사할 내용'이 아님 (비켜줄 대상)
         .map(function (r) { return { who: r.who, start: r.start, end: r.end, title: r.title, pin: !!r.pin, cat: r.cat || '', editor: deviceWho }; });
       if (!snap.length) { formError(msg, '복사할 일정이 없어요.'); return; }
       // 자동 정리 불가 조합 미리 확인 (이전 일괄분 중 끝없는 요일반복)
@@ -2450,16 +2474,33 @@
       var added = [];   // 이번에 새로 깐 루틴들
       if (sf.scope === 'base') {
         schedule = schedule.filter(function (r) { return persons.indexOf(r.who) < 0; });   // 그 사람들 기본 루틴 교체
-        snap.forEach(function (v) { var b = { id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: v.pin, cat: v.cat, editor: deviceWho }; schedule.push(b); added.push(b); });
+        var mkRoutineB = document.getElementById('bulk-routine').checked;
+        snap.forEach(function (v) { var b = { id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: v.pin, cat: v.cat, editor: deviceWho, routine: mkRoutineB }; schedule.push(b); added.push(b); });
         // 오늘 하루짜리 수정들은 이제 기본에 반영됐으니 오늘 예외·가림은 정리
         exceptions = exceptions.filter(function (E) { return !(persons.indexOf(E.who) >= 0 && E.scope === 'day' && E.date === srcDate); });
         hides = hides.filter(function (h) { return !(h.scope === 'day' && h.date === srcDate); });
       } else {
         schedule.forEach(function (b) { if (persons.indexOf(b.who) >= 0) { var hh = mergeInto({ baseId: b.id }, bulkSf()); hh.bulk = true; hides.push(hh); } });   // 범위 동안 기본 가리기(일괄표식)
-        snap.forEach(function (v) { var ex = newEx(v, bulkSf()); ex.bulk = true; exceptions.push(ex); added.push(ex); });          // 오늘 모습을 범위에 복사
+        var mkRoutine = document.getElementById('bulk-routine').checked;
+        snap.forEach(function (v) { var ex = newEx(v, bulkSf()); ex.bulk = true; ex.routine = mkRoutine; exceptions.push(ex); added.push(ex); });   // 오늘 모습을 범위에 복사
       }
-      // 3) 보존된 개별 일정이 있는 날엔 새 루틴이 그 시간을 비켜가게 잘라주기
-      var preserved = exceptions.filter(function (E) { return persons.indexOf(E.who) >= 0 && !E.bulk; });
+      // 2.7) 🔁 루틴 표시된 기존 일정은 새 일과에 밀려남 — 새 범위의 각 날짜에서 새 일과 시간만큼 비켜줌
+      var newDs = (sf.scope === 'base') ? null : enumScopeDates(mergeInto({}, sf));
+      exceptions.slice().forEach(function (E) {
+        if (!(persons.indexOf(E.who) >= 0 && E.routine && !E.bulk && !E.todo)) return;
+        var eDs = enumScopeDates(mergeInto({}, E)) || [];
+        if (!eDs.length) return;   // 끝없는 반복 루틴은 스킵 (무한 나열 방지)
+        eDs.forEach(function (d) {
+          if (newDs && newDs.indexOf(d) < 0) return;   // 새 범위 밖은 그대로
+          if (!appliesOn(E, d)) return;
+          snap.forEach(function (v) {
+            if (v.who !== E.who) return;
+            if (rangesOverlap(toMin(v.start), toMin(v.end), toMin(E.start), toMin(E.end))) carveForDate(E, d, toMin(v.start), toMin(v.end));
+          });
+        });
+      });
+      // 3) 보존된 개별 일정(루틴 아님)이 있는 날엔 새 일과가 그 시간을 비켜가게 잘라주기
+      var preserved = exceptions.filter(function (E) { return persons.indexOf(E.who) >= 0 && !E.bulk && !E.routine; });
       var carved = 0;
       preserved.forEach(function (E) {
         var eDates = null;
@@ -2512,12 +2553,12 @@
       if (sf.scope === 'weekFrom') { d = parseYmd(sf.date); end = parseYmd(sf.weekEnd); }
       else if (sf.scope === 'month') { var p = sf.ym.split('-'); d = new Date(+p[0], +p[1] - 1, 1); end = new Date(+p[0], +p[1], 0); }
       else if (sf.scope === 'year') { d = new Date(sf.y, 0, 1); end = new Date(sf.y, 11, 31); }
-      else if (sf.scope === 'weekdays' || sf.scope === 'nthwd') { d = parseYmd(sf.from); end = parseYmd(sf.until); }
+      else if (sf.scope === 'weekdays' || sf.scope === 'nthwd' || sf.scope === 'everyn') { if (!sf.until) return out; d = parseYmd(sf.from); end = parseYmd(sf.until); }
       else return out;
       var n = 0;
       while (d <= end && n < 400) {
         var ds = ymd(d);
-        if ((sf.scope !== 'weekdays' && sf.scope !== 'nthwd') || appliesOn(sf, ds)) out.push(ds);
+        if ((sf.scope !== 'weekdays' && sf.scope !== 'nthwd' && sf.scope !== 'everyn') || appliesOn(sf, ds)) out.push(ds);
         d.setDate(d.getDate() + 1); n++;
       }
       return out;
@@ -2603,8 +2644,9 @@
       if (formScope === 'nthwd' && formNwDay === null) { formError(msg, '몇째 주 무슨 요일인지 골라주세요.'); return; }
 
       var pin = document.getElementById('f-pin').checked;
-      var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo };
-      var scopeLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', weekdays: '요일 반복', nthwd: '매월 몇째 주', base: '매일' }[formScope] || '';
+      var routine = document.getElementById('f-routine').checked;
+      var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo, routine: routine };
+      var scopeLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', weekdays: '요일 반복', nthwd: '매월 몇째 주', everyn: 'N일마다', base: '매일' }[formScope] || '';
       var sfN = formScope === 'base' ? { scope: 'base' } : scopeFields(formScope, formAnchor, pickedDates);
 
       // ③ 완전히 똑같은 일정(범위까지 동일)이 이미 있으면 막기 — 새로 추가할 때만
@@ -2632,7 +2674,7 @@
       function commitSave() {
         var wasEditing = !!editingItem;
         if (editingItem) applyEditScoped(editingItem, vals);
-        else if (formScope === 'base') schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo });
+        else if (formScope === 'base') schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo, routine: routine });
         else exceptions.push(newEx(vals, sfN));
         logChange(editingItem ? '수정' : '추가', people[formWho].name + ' ' + title + (todo ? ' (메모)' : ''), scopeLabel, formEditor);
         saveAll(); refreshAll(); closeModal();
@@ -2648,8 +2690,23 @@
           commitSave();
           return;
         }
+        var allRoutine = conflicts.every(function (r) { return r.routine; });
+        if (allRoutine && formScope !== 'base') {   // 겹친 게 전부 '루틴'이면 새 일정이 이김 (날짜별로 비켜줌)
+          var nd = enumScopeDates(sfN) || [];
+          if (nd.length && nd.length <= 400) {
+            nd.forEach(function (d) {
+              conflicts.forEach(function (cf) {
+                var on = isBaseItem(cf) ? !hiddenOn(cf.id, d) : appliesOn(cf, d);
+                if (on) carveForDate(cf, d, toMin(start), toMin(end));
+              });
+            });
+            logChange('조정', people[formWho].name + ' 루틴 ' + conflicts.length + '건 (「' + title + '」 자리 비움)', scopeLabel, formEditor);
+            commitSave();
+            return;
+          }
+        }
         var c0 = conflicts[0];
-        formError(msg, '이 시간엔 이미 「' + c0.title + '」(' + c0.start + '–' + c0.end + ')이(가) 있어요. 반복 일정에 끼워 넣으려면 범위를 「이 날짜만」으로 하세요.');
+        formError(msg, '이 시간엔 이미 「' + c0.title + '」(' + c0.start + '–' + c0.end + ')이(가) 있어요. 반복 일정에 끼워 넣으려면 범위를 「이 날짜만」으로 하거나, 기존 일정을 🔁 루틴으로 표시하세요.');
         return;
       }
       commitSave();
@@ -2743,7 +2800,7 @@
       var sc = isBaseItem(r) ? 'base' : JSON.stringify({
         s: r.scope, d: r.date || '', we: r.weekEnd || '', ym: r.ym || '', y: r.y || '',
         ds: (r.dates || []).slice().sort(), f: r.from || '', u: r.until || '',
-        dy: (r.days || []).slice().sort(), n: r.nth || '', wd: r.day === undefined ? '' : r.day,
+        dy: (r.days || []).slice().sort(), n: r.nth || '', en: r.scope === 'everyn' ? r.n : '', wd: r.day === undefined ? '' : r.day,
         ex: (r.excl || []).slice().sort()
       });
       return [r.who, r.title, r.start || '', r.end || '', r.todo ? 1 : 0, r.pin ? 1 : 0, r.cat || '', sc].join('|');
@@ -2766,7 +2823,7 @@
         else if (E.scope === 'weekFrom' && E.weekEnd < cutoff) plan.expEx.push(E.id);
         else if (E.scope === 'month' && monthEnd(E.ym) < cutoff) plan.expEx.push(E.id);
         else if (E.scope === 'year' && (E.y + '-12-31') < cutoff) plan.expEx.push(E.id);
-        else if ((E.scope === 'weekdays' || E.scope === 'nthwd') && E.until && E.until < cutoff) plan.expEx.push(E.id);
+        else if ((E.scope === 'weekdays' || E.scope === 'nthwd' || E.scope === 'everyn') && E.until && E.until < cutoff) plan.expEx.push(E.id);
         else if (E.scope === 'dates' && E.dates.every(function (d) { return d < cutoff; })) plan.expEx.push(E.id);
       });
       hides.forEach(function (h, i) {
