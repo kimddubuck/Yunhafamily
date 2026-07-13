@@ -318,7 +318,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v97</div>
+      <div class="app-ver">v98</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -473,7 +473,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v97</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v98</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -2793,7 +2793,28 @@
         }
         if (E.excl) plan.exclPrune += E.excl.filter(function (d) { return d < cutoff; }).length;
       });
-      plan.total = plan.dupIds.length + plan.expEx.length + plan.expHide.length + plan.orphHide.length + plan.emptyEx.length;
+      // (d) 겹침 복구: 일괄 적용분이 있는 날, 같은 시간대 기본 루틴이 안 가려져 둘 다 보이면 → 그날 가림 추가
+      plan.fixHides = [];
+      var fixSeen = {};
+      exceptions.forEach(function (E) {
+        if (plan.dupIds.indexOf(E.id) >= 0 || plan.expEx.indexOf(E.id) >= 0) return;
+        if (!E.bulk || E.todo) return;
+        if (E.scope === 'weekdays' || E.scope === 'nthwd') { if (!E.until) return; }   // 끝없는 반복은 스킵(무한 나열 방지)
+        var eDs = (E.scope === 'day') ? [E.date] : enumScopeDates({ scope: E.scope, date: E.date, weekEnd: E.weekEnd, ym: E.ym, y: E.y, from: E.from, until: E.until, days: E.days, dates: E.dates, nth: E.nth, day: E.day });
+        (eDs || []).forEach(function (d) {
+          if (!appliesOn(E, d)) return;
+          schedule.forEach(function (b) {
+            if (b.who !== E.who || b.todo) return;
+            if (plan.dupIds.indexOf(b.id) >= 0) return;
+            if (!rangesOverlap(toMin(E.start), toMin(E.end), toMin(b.start), toMin(b.end))) return;
+            if (hiddenOn(b.id, d)) return;   // 이미 가려짐
+            var k = b.id + '|' + d;
+            if (fixSeen[k]) return; fixSeen[k] = true;
+            plan.fixHides.push({ baseId: b.id, date: d });
+          });
+        });
+      });
+      plan.total = plan.dupIds.length + plan.expEx.length + plan.expHide.length + plan.orphHide.length + plan.emptyEx.length + plan.fixHides.length;
       return plan;
     }
     var cleanPlan = null;
@@ -2804,6 +2825,7 @@
       if (cleanPlan.dupIds.length) parts.push('완전 동일 중복 ' + cleanPlan.dupIds.length + '개');
       if (cleanPlan.expEx.length + cleanPlan.expHide.length) parts.push('기간 지난 것(30일 유예) ' + (cleanPlan.expEx.length + cleanPlan.expHide.length) + '개');
       if (cleanPlan.orphHide.length + cleanPlan.emptyEx.length) parts.push('빈 껍데기 ' + (cleanPlan.orphHide.length + cleanPlan.emptyEx.length) + '개');
+      if (cleanPlan.fixHides.length) parts.push('겹침 복구(같은 시간에 둘 다 보이던 것) ' + cleanPlan.fixHides.length + '건');
       document.getElementById('clean-text').innerHTML = parts.join('<br>') + '<br><b>화면에 보이는 일정은 바뀌지 않아요.</b> (범위가 다른 것끼리는 안 건드려요)';
       document.getElementById('clean-modal').classList.add('open');
     }
@@ -2822,6 +2844,7 @@
         if (hseen[k]) return false; hseen[k] = true; return true;
       });
       exceptions.forEach(function (E) { if (E.excl) E.excl = E.excl.filter(function (d) { return d >= cutoff; }); });
+      (p.fixHides || []).forEach(function (f) { hides.push({ baseId: f.baseId, scope: 'day', date: f.date }); });   // 겹침 복구: 그날 기본 루틴 가림
       logChange('수정', '데이터 정리 (' + p.total + '개)', '전체', deviceWho);
       saveAll(); refreshAll();
       showToast('🧹 데이터 ' + p.total + '개를 정리했어요');
