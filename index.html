@@ -318,7 +318,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v91</div>
+      <div class="app-ver">v96</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -437,9 +437,17 @@
             <button class="scope" data-scope="base"     onclick="pickBulkScope(this)">매일</button>
           </div>
           <div class="scope-hint" id="bulk-hint"></div>
+          <div class="wd-box" id="bulk-range" style="display:none">
+            <label class="wd-until">시작일 <input type="date" id="bulk-range-from" onchange="updateBulkHint()" /></label>
+            <label class="wd-until" style="margin-top:8px">종료일 <input type="date" id="bulk-range-to" onchange="updateBulkHint()" /></label>
+          </div>
           <div class="wd-box" id="bulk-wd" style="display:none">
             <div class="wd-days" id="bulk-wd-days"></div>
             <label class="wd-until">종료일 <span class="cat-note">(비우면 계속 반복)</span><input type="date" id="bulk-wd-until" onchange="updateBulkHint()" /></label>
+          </div>
+          <div class="wd-box" id="bulk-base" style="display:none">
+            <label class="wd-until">종료일 <span class="cat-note">(비우면 계속 반복)</span><input type="date" id="bulk-base-until" onchange="updateBulkHint()" /></label>
+            <div class="cat-note" style="margin-top:6px">오늘부터 <b>매일</b> 적용해요. 종료일을 정하면 그날까지만요.</div>
           </div>
           <div class="wd-box" id="bulk-nw" style="display:none">
             <div class="nw-nth" id="bulk-nw-nth"></div>
@@ -465,7 +473,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v91</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v96</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -1430,6 +1438,7 @@
       }, { passive: true });
       // PC 미리보기용 (마우스)
       grid.addEventListener('mousedown', function (e) {
+        if (e.button === 2) return;   // 우클릭은 무시 (삭제는 oncontextmenu가 처리)
         var b = e.target.closest ? e.target.closest('.tgb') : null;
         if (!b) return;
         var rz = e.target.classList.contains('rz'), rzt = e.target.classList.contains('rzt');
@@ -2322,6 +2331,7 @@
       btn.classList.add('active'); bulkScope = btn.dataset.scope;
       document.getElementById('bulk-wd').style.display = bulkScope === 'weekdays' ? '' : 'none';
       document.getElementById('bulk-nw').style.display = bulkScope === 'nthwd' ? '' : 'none';
+      document.getElementById('bulk-base').style.display = bulkScope === 'base' ? '' : 'none';
       if (bulkScope === 'weekdays') buildBulkWd();
       if (bulkScope === 'nthwd') {
         if (bulkNwDay === null) { var ad = parseYmd(todayStr); bulkNwDay = ad.getDay(); var nn = Math.ceil(ad.getDate() / 7); bulkNth = nn >= 5 ? -1 : nn; }
@@ -2330,6 +2340,7 @@
       updateBulkHint();
     }
     var bulkNth = 1, bulkNwDay = null;
+    // '기간 지정' = 월화수목금토일 전부 + 시작일~종료일 (사실상 '그 기간 매일')
     function buildBulkNw() {
       document.getElementById('bulk-nw-nth').innerHTML = [1, 2, 3, 4, -1].map(function (n) {
         return '<button class="' + (bulkNth === n ? 'active' : '') + '" onclick="pickBulkNth(' + n + ')">' + NTH_NAMES[n] + '</button>';
@@ -2360,7 +2371,11 @@
         if (bulkNwDay === null) t = '몇째 주 무슨 요일인지 골라주세요.';
         else { var u3 = document.getElementById('bulk-nw-until').value; t = '매월 ' + NTH_NAMES[bulkNth] + ' ' + WD_NAMES[bulkNwDay] + '요일을 이 일과표로 바꿔요' + (u3 ? ' (' + u3 + '까지)' : ' (계속)') + '.'; }
       }
-      else t = '매일의 기본 루틴 자체를 이 일과표로 바꿔요.';
+      else {   // 매일
+        var bu = document.getElementById('bulk-base-until').value;
+        if (bu) t = mo + '월 ' + dy + '일부터 ' + bu.slice(5).replace('-', '월 ') + '일까지 매일 이 일과표를 써요.';
+        else t = '매일의 기본 루틴 자체를 이 일과표로 바꿔요 (계속).';
+      }
       document.getElementById('bulk-hint').textContent = t;
     }
     function bulkSf() {
@@ -2370,6 +2385,8 @@
       if (bulkScope === 'year') return { scope: 'year', y: a.getFullYear() };
       if (bulkScope === 'weekdays') return { scope: 'weekdays', days: bulkDays.slice(), from: anc, until: (document.getElementById('bulk-wd-until').value || '') };
       if (bulkScope === 'nthwd') return { scope: 'nthwd', nth: bulkNth, day: bulkNwDay, from: anc, until: (document.getElementById('bulk-nw-until').value || '') };
+      var bu = document.getElementById('bulk-base-until').value;
+      if (bu) return { scope: 'weekdays', days: [0, 1, 2, 3, 4, 5, 6], from: anc, until: bu };   // 매일+종료일 = 그 기간 매일
       return { scope: 'base' };
     }
     function applyBulk() {   // 1차: 검증 후 경고 확인창
@@ -2378,9 +2395,14 @@
       if (bulkScope === 'weekdays' && !bulkDays.length) { formError(msg, '반복할 요일을 하나 이상 골라주세요.'); return; }
       if (bulkScope === 'nthwd' && bulkNwDay === null) { formError(msg, '몇째 주 무슨 요일인지 골라주세요.'); return; }
       var anc = applyAnchor();
+      if (bulkScope === 'base') {
+        var bu0 = document.getElementById('bulk-base-until').value;
+        if (bu0 && bu0 < anc) { formError(msg, '종료일이 시작일보다 빨라요.'); return; }
+      }
       var cnt = itemsForDate(anc).filter(function (r) { return bulkWho.indexOf(r.who) >= 0; }).length;
       if (!cnt) { formError(msg, '복사할 일정이 없어요.'); return; }
-      var label = { weekFrom: '이 주', month: '이 달', year: '올해', weekdays: '요일 반복', nthwd: '매월 몇째 주', base: '매일' }[bulkScope];
+      var baseUntil = document.getElementById('bulk-base-until').value;
+      var label = { weekFrom: '이 주', month: '이 달', year: '올해', weekdays: '요일 반복', nthwd: '매월 몇째 주', base: (baseUntil ? '지정 기간 매일' : '매일') }[bulkScope];
       var names = bulkWho.map(function (w) { return people[w].name; }).join('·');
       var srcTxt = (anc === todayStr) ? '오늘 모습' : (parseYmd(anc).getMonth() + 1) + '월 ' + parseYmd(anc).getDate() + '일 모습';
       document.getElementById('bulkc-text').innerHTML = '<b>' + names + '</b>의 <b>' + label + '</b> 루틴이 ' + srcTxt + '(일정 ' + cnt + '개)으로 바뀌어요.<br>' + document.getElementById('bulk-hint').textContent;
@@ -2424,7 +2446,7 @@
         hides = hides.filter(function (h) { return !(h.scope === 'day' && h.date === srcDate); });
       } else {
         schedule.forEach(function (b) { if (persons.indexOf(b.who) >= 0) { var hh = mergeInto({ baseId: b.id }, bulkSf()); hh.bulk = true; hides.push(hh); } });   // 범위 동안 기본 가리기(일괄표식)
-        snap.forEach(function (v) { var ex = newEx(v, bulkSf()); ex.bulk = true; exceptions.push(ex); added.push(ex); });          // 오늘 모습을 범위에 복사 (수정 배지는 안 붙임)
+        snap.forEach(function (v) { var ex = newEx(v, bulkSf()); ex.bulk = true; exceptions.push(ex); added.push(ex); });          // 오늘 모습을 범위에 복사
       }
       // 3) 보존된 개별 일정이 있는 날엔 새 루틴이 그 시간을 비켜가게 잘라주기
       var preserved = exceptions.filter(function (E) { return persons.indexOf(E.who) >= 0 && !E.bulk; });
