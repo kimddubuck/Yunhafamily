@@ -344,7 +344,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v101</div>
+      <div class="app-ver">v102·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -500,7 +500,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v101</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v102·패치</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -2400,7 +2400,9 @@
         exceptions.push(newEx(v, sf));
       } else {
         exceptions = exceptions.filter(function (r) { return r.id !== row.id; });  // 이 예외를 새 범위로 교체
-        exceptions.push(newEx(v, sf));
+        var ne2 = newEx(v, sf);
+        if (row.bulk && row.scope === S) ne2.bulk = true;   // 일괄분을 원래 범위 그대로 수정하면 '일괄 표식' 유지 (다음 일괄 정리에서 빠지지 않게)
+        exceptions.push(ne2);
       }
     }
     function closeModal() { document.getElementById('modal').classList.remove('open'); }
@@ -2789,48 +2791,83 @@
       var sf = bulkSf();
       // 1) 오늘 모습 스냅샷 (정리하기 전에 먼저 떠놓기)
       var srcDate = applyAnchor();
-      var snap = itemsForDate(srcDate).filter(function (r) { return persons.indexOf(r.who) >= 0 && !(r.routine && !isBaseItem(r)); })   // 루틴 표시 예외는 '복사할 내용'이 아님 (비켜줄 대상)
+      var snap = itemsForDate(srcDate).filter(function (r) { return persons.indexOf(r.who) >= 0 && !(r.routine && !r.bulk && !isBaseItem(r)) && !r.todo; })   // 사용자가 직접 🔁 켠 개인 일정만 '비켜줄 대상'으로 제외 · 엑셀/일괄분(bulk)은 복사에 포함 · 메모는 복사 제외
         .map(function (r) { return { who: r.who, start: r.start, end: r.end, title: r.title, pin: !!r.pin, cat: r.cat || '', editor: deviceWho }; });
       if (!snap.length) { formError(msg, '복사할 일정이 없어요.'); return; }
+      // 안전벨트: 복사할 몫이 0개인 사람은 교체 대상에서 자동 제외 (기존 일과가 통째로 지워지는 사고 방지)
+      var skippedWho = persons.filter(function (w) { return !snap.some(function (v) { return v.who === w; }); });
+      if (skippedWho.length) persons = persons.filter(function (w) { return skippedWho.indexOf(w) < 0; });
       // 자동 정리 불가 조합 미리 확인 (이전 일괄분 중 끝없는 요일반복)
       if (sf.scope !== 'base' && !finiteScope(sf)) {
         var bad = exceptions.some(function (E) { return persons.indexOf(E.who) >= 0 && E.bulk && (E.scope === 'weekdays' || E.scope === 'nthwd') && !E.until; });
         if (bad) { formError(msg, '이전에 일괄 적용된 끝없는 요일반복이 있어요. 먼저 정리해주세요.'); return; }
       }
       // 2) 그 범위의 기존 루틴 정리 — 개별 등록/수정 일정(비-일괄)은 보존!
-      // 먼저, 이 사람들의 '이전 일괄분'(bulk 예외 + bulk 가림)을 전부 제거해 중복을 막음
+      // 이전 일괄분은 '새 범위와 겹치는 날짜만' 정리하고, 범위 밖 날짜의 루틴은 살려둠 (예: 월간 루틴 중 이번 주만 바꿔도 나머지 날은 유지)
       var probeSf = bulkSf();   // 새 범위가 덮는 날짜인지 검사용
+      var newRangeDs = (sf.scope !== 'base' && finiteScope(sf)) ? enumScopeDates(mergeInto({}, probeSf)) : null;   // 새 범위의 날짜 목록 (매일·끝없는 반복이면 null)
+      var specialDays = [];     // 범위 안에서 보존된 하루짜리 특별일(엑셀 등) — 새 루틴이 그 날을 건너뜀
       exceptions = exceptions.filter(function (E) {
         if (!(persons.indexOf(E.who) >= 0 && E.bulk)) return true;
-        if (E.scope === 'day' && !appliesOn(mergeInto({}, probeSf), E.date)) return true;   // 새 범위 밖의 하루짜리(엑셀 적용분 등)는 보존
-        return false;
+        if (E.scope === 'day') {                                                   // 하루짜리(엑셀 특별일 등)
+          var inRange = sf.scope === 'base' ? false : appliesOn(mergeInto({}, probeSf), E.date);
+          if (!inRange) return true;                                               // 새 범위 밖 → 보존 (기존 동작)
+          if (E.date === srcDate) return false;                                    // 원본 날 것은 새 루틴에 흡수 (중복 방지)
+          specialDays.push({ who: E.who, date: E.date });                          // 범위 안 특별일 → 보존하고 새 루틴이 비켜감
+          return true;
+        }
+        if (!newRangeDs) return false;                                             // 새 범위가 무한(매일·계속)이면 기존대로 전부 정리
+        var edm = enumScopeDates(mergeInto({}, E)) || [];
+        if (!edm.length) return false;                                             // 끝없는 이전 일괄분 (사전 차단되지만 안전망)
+        var remain = edm.filter(function (d) { return newRangeDs.indexOf(d) < 0 && appliesOn(E, d); });
+        if (!remain.length) return false;                                          // 전부 새 범위 안 → 제거
+        edm.forEach(function (d) { if (newRangeDs.indexOf(d) >= 0 && appliesOn(E, d)) { E.excl = E.excl || []; if (E.excl.indexOf(d) < 0) E.excl.push(d); } });
+        return true;                                                               // 범위 밖 날짜들은 그대로 유지
       });
       hides = hides.filter(function (h) {
         if (!h.bulk) return true;
         var b = schedule.filter(function (r) { return r.id === h.baseId; })[0];
-        return !(b && persons.indexOf(b.who) >= 0);
+        if (!(b && persons.indexOf(b.who) >= 0)) return true;
+        if (!newRangeDs) return false;                                             // 새 범위가 무한이면 기존대로 정리
+        var hdm = enumScopeDates(mergeInto({}, h)) || [];
+        if (!hdm.length) return false;
+        var remainH = hdm.filter(function (d) { return newRangeDs.indexOf(d) < 0 && appliesOn(h, d); });
+        if (!remainH.length) return false;
+        hdm.forEach(function (d) { if (newRangeDs.indexOf(d) >= 0 && appliesOn(h, d)) { h.excl = h.excl || []; if (h.excl.indexOf(d) < 0) h.excl.push(d); } });
+        return true;                                                               // 보존된 루틴 날짜의 기본 가림도 함께 유지
       });
       var added = [];   // 이번에 새로 깐 루틴들
       if (sf.scope === 'base') {
         schedule = schedule.filter(function (r) { return persons.indexOf(r.who) < 0; });   // 그 사람들 기본 루틴 교체
         var mkRoutineB = document.getElementById('bulk-routine').checked;
         snap.forEach(function (v) { var b = { id: nextId++, who: v.who, start: v.start, end: v.end, title: v.title, pin: v.pin, cat: v.cat, editor: deviceWho, routine: mkRoutineB }; schedule.push(b); added.push(b); });
-        // 오늘 하루짜리 수정들은 이제 기본에 반영됐으니 오늘 예외·가림은 정리
-        exceptions = exceptions.filter(function (E) { return !(persons.indexOf(E.who) >= 0 && E.scope === 'day' && E.date === srcDate); });
-        hides = hides.filter(function (h) { return !(h.scope === 'day' && h.date === srcDate); });
+        // 오늘 하루짜리 수정들은 이제 기본에 반영됐으니 오늘 예외·가림은 정리 (메모는 복사 안 됐으니 남겨둠)
+        exceptions = exceptions.filter(function (E) { return !(persons.indexOf(E.who) >= 0 && E.scope === 'day' && E.date === srcDate && !E.todo); });
+        hides = hides.filter(function (h) {
+          if (!(h.scope === 'day' && h.date === srcDate)) return true;
+          var hb = schedule.filter(function (r) { return r.id === h.baseId; })[0];
+          return !!hb && persons.indexOf(hb.who) < 0;   // 선택 안 한 사람의 '오늘만 삭제'는 보존 (부활 방지)
+        });
       } else {
         schedule.forEach(function (b) { if (persons.indexOf(b.who) >= 0) { var hh = mergeInto({ baseId: b.id }, bulkSf()); hh.bulk = true; hides.push(hh); } });   // 범위 동안 기본 가리기(일괄표식)
         var mkRoutine = document.getElementById('bulk-routine').checked;
         snap.forEach(function (v) { var ex = newEx(v, bulkSf()); ex.bulk = true; ex.routine = mkRoutine; exceptions.push(ex); added.push(ex); });   // 오늘 모습을 범위에 복사
       }
+      // 보존된 특별일(엑셀 등)에는 새 루틴이 적용되지 않게 그 날짜를 제외
+      specialDays.forEach(function (sd) {
+        added.forEach(function (R) {
+          if (R.who !== sd.who) return;
+          R.excl = R.excl || []; if (R.excl.indexOf(sd.date) < 0) R.excl.push(sd.date);
+        });
+      });
       // 2.7) 🔁 루틴 표시된 기존 일정은 새 일과에 밀려남 — 새 범위의 각 날짜에서 새 일과 시간만큼 비켜줌
       var newDs = (sf.scope === 'base') ? null : enumScopeDates(mergeInto({}, sf));
       exceptions.slice().forEach(function (E) {
         if (!(persons.indexOf(E.who) >= 0 && E.routine && !E.bulk && !E.todo)) return;
-        var eDs = enumScopeDates(mergeInto({}, E)) || [];
-        if (!eDs.length) return;   // 끝없는 반복 루틴은 스킵 (무한 나열 방지)
-        eDs.forEach(function (d) {
-          if (newDs && newDs.indexOf(d) < 0) return;   // 새 범위 밖은 그대로
+        var ds = newDs;   // 새 범위가 유한하면 그 날짜들에서만 비켜주면 됨 → 끝없는 반복 루틴도 처리 가능
+        if (!ds) { ds = enumScopeDates(mergeInto({}, E)) || []; }   // '매일' 교체일 땐 루틴 자신의 날짜로 (끝없는 반복은 스킵)
+        if (!ds.length) return;
+        ds.forEach(function (d) {
           if (!appliesOn(E, d)) return;
           snap.forEach(function (v) {
             if (v.who !== E.who) return;
@@ -2861,7 +2898,8 @@
       var label = { weekFrom: '이 주', month: '이 달', year: '올해', weekdays: '요일 반복', nthwd: '매월 몇째 주', base: '매일' }[bulkScope];
       logChange('일괄', persons.map(function (w) { return people[w].name; }).join('·') + ' 하루 일과표 적용', label, deviceWho);
       saveAll(); refreshAll(); closeBulk();
-      showToast('✅ ' + label + '에 일과표를 적용했어요 (일정 ' + snap.length + '개' + (carved ? ' · 개별 일정 ' + preserved.length + '건은 보존' : '') + ')');
+      var skipTxt = skippedWho.length ? ' · ' + skippedWho.map(function (w) { return people[w].name; }).join('·') + '은(는) 복사할 일정이 없어 건너뜀' : '';
+      showToast('✅ ' + label + '에 일과표를 적용했어요 (일정 ' + snap.length + '개' + (carved ? ' · 개별 일정 ' + preserved.length + '건은 보존' : '') + ')' + skipTxt);
     }
 
     /* ===== 겹침 정리 엔진 (덮어쓰기) ===== */
@@ -2991,7 +3029,7 @@
       // ③ 완전히 똑같은 일정(범위까지 동일)이 이미 있으면 막기 — 새로 추가할 때만
       if (!editingItem) {
         var newKey = [formWho, title, start, end, todo ? 1 : 0, pin ? 1 : 0, formCat || '',
-          formScope === 'base' ? 'base' : JSON.stringify({ s: sfN.scope, d: sfN.date || '', we: sfN.weekEnd || '', ym: sfN.ym || '', y: sfN.y || '', ds: (sfN.dates || []).slice().sort(), f: sfN.from || '', u: sfN.until || '', dy: (sfN.days || []).slice().sort(), n: sfN.nth || '', wd: sfN.day === undefined ? '' : sfN.day, ex: [] })].join('|');
+          formScope === 'base' ? 'base' : JSON.stringify({ s: sfN.scope, d: sfN.date || '', we: sfN.weekEnd || '', ym: sfN.ym || '', y: sfN.y || '', ds: (sfN.dates || []).slice().sort(), f: sfN.from || '', u: sfN.until || '', dy: (sfN.days || []).slice().sort(), n: sfN.nth || '', en: sfN.scope === 'everyn' ? sfN.n : '', wd: sfN.day === undefined ? '' : sfN.day, ex: [] })].join('|');
         var dupExists = schedule.concat(exceptions).some(function (r) { return itemKey(r) === newKey; });
         if (dupExists) { formError(msg, '완전히 똑같은 일정이 이미 있어요.'); return; }
       }
