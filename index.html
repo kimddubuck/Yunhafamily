@@ -344,7 +344,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v105·패치</div>
+      <div class="app-ver">v106·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -500,7 +500,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v105·패치</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v106·패치</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -2346,8 +2346,9 @@
       document.getElementById('form-msg').textContent = '';
       setFormWho('dad');
       document.getElementById('f-title').value = '';
-      document.getElementById('f-start').value = '09:00';
-      document.getElementById('f-end').value = '10:00';
+      var nowD = new Date();   // 시작=지금 시각의 정시, 끝=한 시간 뒤 (물론 바로 고칠 수 있어요)
+      document.getElementById('f-start').value = ('0' + nowD.getHours()).slice(-2) + ':00';
+      document.getElementById('f-end').value = ('0' + ((nowD.getHours() + 1) % 24)).slice(-2) + ':00';
       document.getElementById('f-pin').checked = false;
       document.getElementById('f-routine').checked = false;
       document.getElementById('f-todo').checked = false; toggleTodoUI();
@@ -2716,7 +2717,7 @@
       persons.forEach(function (w) {
         xlsParsed[w].forEach(function (ev) {
           var xe = newEx({ who: w, start: ev.s, end: ev.e, title: ev.title, pin: false, cat: xlsCatFor(ev.title), editor: deviceWho }, { scope: 'day', date: tgt });
-          xe.bulk = true; xe.routine = true;   // 엑셀 일과 = 루틴 (새 일정이 오면 비켜줌)
+          xe.bulk = true; xe.routine = true; xe.special = true;   // 엑셀 일과 = 루틴 + '특별일' 신분 (재적용 때 보존 대상)
           exceptions.push(xe);
           cnt++;
         });
@@ -2884,6 +2885,7 @@
           var inRange = sf.scope === 'base' ? false : appliesOn(mergeInto({}, probeSf), E.date);
           if (!inRange) return true;                                               // 새 범위 밖 → 보존 (기존 동작)
           if (E.date === srcDate) return false;                                    // 원본 날 것은 새 루틴에 흡수 (중복 방지)
+          if (!E.special) return false;                                            // 루틴이 잘리며 생긴 '조각' 등은 새 루틴으로 대체 (특별일만 보존)
           specialDays.push({ who: E.who, date: E.date });                          // 범위 안 특별일 → 보존하고 새 루틴이 비켜감
           return true;
         }
@@ -2991,7 +2993,11 @@
       var parts = rem.map(function (p) { return [p[0] % 1440, p[1] % 1440]; });
       return { type: 'trim', s: parts[0][0], e: parts[0][1], parts: parts };   // 갈라지면 모든 조각 반환
     }
-    function copyAsEx(E, sf, s, e) { return mergeInto({ id: nextId++, who: E.who, start: toHM(s), end: toHM(e), title: E.title, pin: !!E.pin, cat: E.cat || '', editor: deviceWho }, sf); }
+    function copyAsEx(E, sf, s, e) {   // 잘림 '조각'은 원본의 성격(루틴·특별일)을 그대로 물려받음
+      var c = mergeInto({ id: nextId++, who: E.who, start: toHM(s), end: toHM(e), title: E.title, pin: !!E.pin, cat: E.cat || '', editor: deviceWho, routine: !!E.routine }, sf);
+      if (E.special) c.special = true;
+      return c;
+    }
     // 범위 → 실제 날짜 나열 (유한 범위만, 최대 400일)
     function finiteScope(sf) { return sf.scope !== 'base' && !((sf.scope === 'weekdays' || sf.scope === 'nthwd') && !sf.until); }
     function enumScopeDates(sf) {
@@ -3148,22 +3154,31 @@
           return;
         }
         var allRoutine = conflicts.every(function (r) { return r.routine; });
-        if (allRoutine && formScope !== 'base') {   // 겹친 게 전부 '루틴'이면 새 일정이 이김 (날짜별로 비켜줌)
-          var nd = enumScopeDates(sfN) || [];
-          if (nd.length && nd.length <= 400) {
-            nd.forEach(function (d) {
+        // 반복 범위: 겹친 일정을 '날짜별로' 비켜줄 수 있는지 (끝없는 반복은 날짜를 나열할 수 없어 불가)
+        var ndC = (formScope !== 'base') ? (enumScopeDates(sfN) || []) : [];
+        if (ndC.length && ndC.length <= 400) {
+          var carveAllAndSave = function () {
+            ndC.forEach(function (d) {
               conflicts.forEach(function (cf) {
                 var on = isBaseItem(cf) ? !hiddenOn(cf.id, d) : appliesOn(cf, d);
-                if (on) carveForDate(cf, d, toMin(start), toMin(end));
+                if (on) carveForDate(cf, d, toMin(start), toMin(end));   // 그 날짜에 실제로 있는 경우만, 새 일정 시간만큼 잘라냄
               });
             });
-            logChange('조정', people[formWho].name + ' 루틴 ' + conflicts.length + '건 (「' + title + '」 자리 비움)', scopeLabel, formEditor);
+            logChange('조정', people[formWho].name + ' ' + conflicts.length + '건 (「' + title + '」 자리 비움)', scopeLabel, formEditor);
             commitSave();
-            return;
-          }
+          };
+          if (allRoutine) { carveAllAndSave(); return; }   // 전부 🔁 루틴 → 약속대로 조용히 비켜줌
+          // 루틴이 아닌 일정 포함 → 어떤 일정이 잘려나가는지 목록으로 보여주고 확인 받기
+          var othersC = conflicts.filter(function (r) { return !r.routine; });
+          var listTxt = othersC.slice(0, 6).map(function (r) { return '· 「' + escapeHtml(r.title) + '」 ' + r.start + '–' + r.end; }).join('<br>') +
+                        (othersC.length > 6 ? '<br>· 외 ' + (othersC.length - 6) + '건' : '');
+          eeConfirm('「' + escapeHtml(title) + '」(' + start + '–' + end + ')과 겹치는 일정이 있어요:<br>' + listTxt +
+            '<br><span style="font-size:12px;color:#8C8B82">겹치는 날짜(' + scopeLabel + ' 범위)에서 위 일정들을 새 일정 시간만큼 잘라내요 · 수정내역에서 되돌릴 수 있어요</span>',
+            carveAllAndSave);
+          return;
         }
         var c0 = conflicts[0];
-        formError(msg, '이 시간엔 이미 「' + c0.title + '」(' + c0.start + '–' + c0.end + ')이(가) 있어요. 반복 일정에 끼워 넣으려면 범위를 「이 날짜만」으로 하거나, 기존 일정을 🔁 루틴으로 표시하세요.');
+        formError(msg, '이 시간엔 이미 「' + c0.title + '」(' + c0.start + '–' + c0.end + ')이(가) 있어요. 끝없는 반복에는 끼워 넣을 수 없으니 종료일을 정하거나, 범위를 「이 날짜만」으로 해주세요.');
         return;
       }
       commitSave();
@@ -3194,6 +3209,35 @@
       if (!editingItem) return;
       var row = editingItem, S = formScope, D = formAnchor;
       if (S === 'dates' && !pickedDates.length) { document.getElementById('form-msg').textContent = '삭제할 날짜를 고르세요.'; return; }
+      if (S !== 'day' && S !== 'dates') {   // 여러 날짜가 한꺼번에 지워지는 삭제 → 반드시 확인 받기
+        var scL = { weekFrom: '이 주', month: '이 달', year: '올해', weekdays: '요일 반복', nthwd: '매월 몇째 주', everyn: 'N일마다', base: '매일' }[S] || '';
+        askDelRepeat('「' + escapeHtml(row.title) + '」은(는) <b>' + scL + '</b> 반복 일정이에요.<br>' +
+          '<b style="color:#C0392B">반복되는 날짜 전부에서 삭제</b>돼요.<br>' +
+          '<span style="font-size:12px;color:#8C8B82">지금 보던 날짜(' + editContextDate.slice(5).replace('-', '/') + ') 하루만 지울 수도 있어요 · 수정내역에서 되돌리기 가능</span>',
+          function () { doDeleteItem('day', editContextDate); },
+          function () { doDeleteItem(S, D); });
+        return;
+      }
+      doDeleteItem(S, D);
+    }
+    // 삭제 확인 팝업: [이 날짜만 삭제] / [반복 전체 삭제] / 취소
+    function askDelRepeat(html, onDay, onAll) {
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
+      ov.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)">' +
+        '<div style="font-size:15px;line-height:1.65;color:#2C2C2A">🗑 ' + html + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">' +
+          '<button id="dr-day" style="padding:13px;border:none;background:#2B7A78;color:#fff;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">이 날짜만 삭제</button>' +
+          '<button id="dr-all" style="padding:12px;border:1.5px solid #E5C4BF;background:#fff;color:#C0392B;border-radius:10px;font-family:inherit;font-size:14px;cursor:pointer">반복 전체 삭제</button>' +
+          '<button id="dr-no" style="padding:12px;border:1.5px solid #ECEAE2;background:#fff;color:#2C2C2A;border-radius:10px;font-family:inherit;font-size:14px;cursor:pointer">취소</button>' +
+        '</div></div>';
+      document.body.appendChild(ov);
+      ov.querySelector('#dr-day').onclick = function () { ov.remove(); onDay(); };
+      ov.querySelector('#dr-all').onclick = function () { ov.remove(); onAll(); };
+      ov.querySelector('#dr-no').onclick = function () { ov.remove(); };
+    }
+    function doDeleteItem(S, D) {
+      var row = editingItem;
       if (S === 'base') {                        // 전체 삭제
         schedule = schedule.filter(function (r) { return r.id !== row.id; });
         exceptions = exceptions.filter(function (r) { return r.id !== row.id; });
