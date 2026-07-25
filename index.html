@@ -344,7 +344,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v102·패치</div>
+      <div class="app-ver">v104·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -500,7 +500,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v102·패치</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v104·패치</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -2222,6 +2222,10 @@
       }
       else if (formScope === 'weekdays') {
         if (!formDays.length) t = '반복할 요일을 하나 이상 골라주세요.';
+        else if (formDays.length === 7) {   // 7개 요일 전부 = 사용자에겐 그냥 '매일'
+          var u0 = document.getElementById('wd-until').value;
+          t = mo + '월 ' + dy + '일부터 매일 반복' + (u0 ? (' (' + u0 + '까지)') : ' (계속)') + '돼요.';
+        }
         else {
           var names = formDays.slice().sort(function (x, y) { return x - y; }).map(function (i) { return WD_NAMES[i]; }).join('·');
           var u = document.getElementById('wd-until').value;
@@ -2379,6 +2383,29 @@
     function assignVals(row, v) { row.who = v.who; row.start = v.start; row.end = v.end; row.title = v.title; row.pin = !!v.pin; row.cat = v.cat || ''; row.editor = v.editor || ''; row.todo = !!v.todo; row.routine = !!v.routine; }
 
     // 수정 적용 (추가와 똑같은 6개 범위)
+    // 반복 일정 '부분 교체': 새 범위의 날짜만 원본에서 떼어내고(제외일), 새 정의를 그 범위로 추가 — 나머지 날짜의 원본은 그대로 보존
+    function splitEditKeepRest(row, v, sf) {
+      var ds = enumScopeDates(sf) || [];
+      ds.forEach(function (d) { if (appliesOn(row, d)) detachDate(row, d); });
+      exceptions.push(newEx(v, sf));
+    }
+    // 반복 좁히기 선택 팝업: [선택한 날짜만 바꾸기] / [반복 전체 바꾸기] / 취소
+    function askEditSplit(html, onKeep, onReplace) {
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
+      ov.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)">' +
+        '<div style="font-size:15px;line-height:1.65;color:#2C2C2A">' + html + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">' +
+          '<button id="es-keep" style="padding:13px;border:none;background:#2B7A78;color:#fff;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">선택한 날짜만 바꾸기 (나머지는 그대로) · 추천</button>' +
+          '<button id="es-rep" style="padding:12px;border:1.5px solid #E5C4BF;background:#fff;color:#C0392B;border-radius:10px;font-family:inherit;font-size:14px;cursor:pointer">반복 전체를 바꾸기 (나머지 날짜에선 사라져요)</button>' +
+          '<button id="es-no" style="padding:12px;border:1.5px solid #ECEAE2;background:#fff;color:#2C2C2A;border-radius:10px;font-family:inherit;font-size:14px;cursor:pointer">취소</button>' +
+        '</div></div>';
+      document.body.appendChild(ov);
+      ov.querySelector('#es-keep').onclick = function () { ov.remove(); onKeep(); };
+      ov.querySelector('#es-rep').onclick = function () { ov.remove(); onReplace(); };
+      ov.querySelector('#es-no').onclick = function () { ov.remove(); };
+    }
+
     function applyEditScoped(row, v) {
       var S = formScope, D = formAnchor;
       if (S === 'base') {                                  // 매일 전체
@@ -2740,6 +2767,7 @@
       else if (bulkScope === 'year') t = yr + '년 한 해 전체를 이 일과표로 바꿔요.';
       else if (bulkScope === 'weekdays') {
         if (!bulkDays.length) t = '반복할 요일을 하나 이상 골라주세요.';
+        else if (bulkDays.length === 7) { var u7 = document.getElementById('bulk-wd-until').value; t = mo + '월 ' + dy + '일부터 매일 이 일과표로 바꿔요' + (u7 ? ' (' + u7 + '까지)' : ' (계속)') + '.'; }
         else { var names = bulkDays.slice().sort(function (x, y) { return x - y; }).map(function (i) { return WD_NAMES[i]; }).join('·'); var u = document.getElementById('bulk-wd-until').value; t = mo + '월 ' + dy + '일부터 매주 ' + names + '요일을 이 일과표로 바꿔요' + (u ? ' (' + u + '까지)' : ' (계속)') + '.'; }
       }
       else if (bulkScope === 'nthwd') {
@@ -3035,6 +3063,8 @@
       }
 
       // 같은 사람이 같은 시간에 겹치는 기존 일정 모으기 (할 일은 시간이 없어 검사 제외)
+      var __self = { doSave: null };
+      __self.doSave = function (keepRest) {
       var conflicts = [];
       if (!todo) {
         var checkDate = editingItem ? editContextDate : formAnchor;
@@ -3050,7 +3080,7 @@
 
       function commitSave() {
         var wasEditing = !!editingItem;
-        if (editingItem) applyEditScoped(editingItem, vals);
+        if (editingItem) { if (keepRest) splitEditKeepRest(editingItem, vals, sfN); else applyEditScoped(editingItem, vals); }
         else if (formScope === 'base') schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo, routine: routine });
         else exceptions.push(newEx(vals, sfN));
         logChange(editingItem ? '수정' : '추가', people[formWho].name + ' ' + title + (todo ? ' (메모)' : ''), scopeLabel, formEditor);
@@ -3087,6 +3117,28 @@
         return;
       }
       commitSave();
+      };   // ── __self.doSave 끝 ──
+
+      // ★ 반복 좁히기 안전장치: 반복 일정의 내용(제목·시간·담당자)을 바꾸면서 반복 범위를 더 좁게 고르면,
+      //    조용히 전체를 교체하지 않고 나머지 날짜를 어떻게 할지 물어봄 (예: 매일 「운동」 → 화·금만 「1:1PT」)
+      if (editingItem && !isBaseItem(editingItem) && editingItem.scope && editingItem.scope !== 'day'
+          && formScope !== 'day' && formScope !== 'base') {
+        var contentChangedS = (editingItem.title !== title || editingItem.start !== start || editingItem.end !== end || editingItem.who !== formWho);
+        if (contentChangedS) {
+          var oldDsS = enumScopeDates(mergeInto({}, editingItem)) || [];
+          var newDsS = enumScopeDates(sfN) || [];
+          if (oldDsS.length && newDsS.length && newDsS.length < oldDsS.length) {
+            var oldSetS = {}; oldDsS.forEach(function (d) { oldSetS[d] = 1; });
+            if (newDsS.every(function (d) { return oldSetS[d]; })) {   // 새 범위가 옛 범위의 일부일 때만
+              askEditSplit('「' + escapeHtml(editingItem.title) + '」은(는) 지금 더 넓게 반복 중이에요.<br>' +
+                '선택한 범위(' + newDsS.length + '일)만 「' + escapeHtml(title) + '」(으)로 바꾸면,<br>나머지 ' + (oldDsS.length - newDsS.length) + '일은 어떻게 할까요?',
+                function () { __self.doSave(true); }, function () { __self.doSave(false); });
+              return;
+            }
+          }
+        }
+      }
+      __self.doSave(false);
     }
     function deleteItem() {
       if (!editingItem) return;
