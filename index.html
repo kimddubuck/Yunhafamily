@@ -17,12 +17,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>우리 가족 스케줄</title>
+  <title>오늘의 우리 — 육아 부부 루틴 & 플래너</title>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#FAF8F2">
-  <link rel="manifest" href='data:application/manifest+json,{"name":"우리 가족 스케줄","short_name":"가족스케줄","start_url":"https://kimddubuck.github.io/Yunhafamily/","display":"standalone","background_color":"#FAF8F2","theme_color":"#2B7A78"}'>
+  <link rel="manifest" href='data:application/manifest+json,{"name":"오늘의 우리","short_name":"오늘의우리","start_url":"https://kimddubuck.github.io/Yunhafamily/","display":"standalone","background_color":"#FAF8F2","theme_color":"#2B7A78"}'>
   <style>
     /* 세븐세그먼트(디지털 전광판) 폰트 — 인터넷 연결 시 로드, 없으면 monospace로 대체 */
     @font-face {
@@ -223,6 +223,11 @@
     .view-toggle .bulk-btn { margin-left: auto; color: var(--accent); border-color: var(--accent); font-weight: 600; }
     .view-toggle .bulk-btn ~ .bulk-btn { margin-left: 6px; }
 
+    /* ===== 사용법 화면 ===== */
+    .hp-step { border:1.5px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+    .hp-step b { font-size:14.5px; }
+    .hp-step p { font-size:13.5px; color:#4b4a45; margin-top:4px; line-height:1.6; }
+
     /* ===== 엑셀식 '수정 표' (데일리 화면) ===== */
     #daily-edit { padding: 4px 0 90px; }
     .ee-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 6px 2px 12px; }
@@ -342,9 +347,9 @@
 <body>
   <div class="app">
     <header class="header">
-      <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
+      <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v106·패치</div>
+      <div class="app-ver">v107·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -498,9 +503,29 @@
       </div>
     </div>
 
+    <div id="help-ov" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9000;overflow:auto;padding:22px 14px" onclick="if(event.target===this)closeHelp()">
+      <div style="max-width:560px;margin:0 auto;background:var(--card);border-radius:18px;padding:22px 20px 16px;box-shadow:0 10px 40px rgba(0,0,0,.2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <b style="font-size:18px;color:var(--accent)">❓ 오늘의 우리 사용법</b>
+          <button onclick="closeHelp()" style="border:none;background:transparent;font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">설정은 3분, 그다음부터는 자동이에요.</p>
+
+        <div class="hp-step"><b>1️⃣ 하루를 한 번만 설계</b><p>오늘 일과를 채우고(📄 엑셀 붙여넣기 가능) → <b>일괄 적용 → 매일 + 종료일</b> → 연말까지 매일 반복되는 루틴 완성!</p></div>
+        <div class="hp-step"><b>2️⃣ 부부의 하루를 한눈에</b><p>시계 차트로 오늘을, 주간·월간으로 흐름을 봐요. <b>전체</b>를 누르면 아빠·엄마·아이가 나란히 비교돼요.</p></div>
+        <div class="hp-step"><b>3️⃣ 일정은 그냥 추가</b><p>➕로 새 일정을 넣으면 <b>루틴이 알아서 비켜줘요</b> (하루만·요일 반복 모두). 🔁가 꺼진 소중한 일정과 겹치면 목록으로 먼저 물어봐요.</p></div>
+        <div class="hp-step"><b>4️⃣ ✏️ 수정 표 (PC 추천)</b><p>시간 칸에 <b>530만 쳐도 05:30</b> · Enter=아랫줄 · 방향키 이동. 데일리와 월간 어느 날짜든 돼요. 저장하면 <b>그 날짜 하루만</b> 반영!</p></div>
+        <div class="hp-step"><b>5️⃣ 실수해도 안전</b><p>모든 변경은 <b>🕘 수정내역</b>에 남고 ↩️ 되돌리기가 돼요. 반복 삭제·덮어쓰기는 반드시 확인창이 먼저 물어봐요.</p></div>
+
+        <div style="background:var(--bg);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--muted);margin-top:6px">
+          💡 <b style="color:var(--accent)">🔁 루틴 표시란?</b> "새 일정이 오면 비켜주는 배경 일정"이라는 뜻이에요. 병원 예약처럼 지키고 싶은 일정은 🔁를 끄세요.
+        </div>
+        <button onclick="closeHelp()" style="width:100%;margin-top:14px;padding:13px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">닫기</button>
+      </div>
+    </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v106·패치</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v107·패치</span><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -2569,6 +2594,8 @@
       ciKey = null; ciTarget = null; ciMoved = 0;
     }
 
+    function openHelp() { document.getElementById('help-ov').style.display = ''; }
+    function closeHelp() { document.getElementById('help-ov').style.display = 'none'; }
     function openHistory() { document.getElementById('hist-modal').classList.add('open'); renderHistory(); }
     function closeHistory() { document.getElementById('hist-modal').classList.remove('open'); }
     function countPins() {
