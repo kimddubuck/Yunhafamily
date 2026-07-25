@@ -344,7 +344,7 @@
     <header class="header">
       <div class="head-row"><h1>우리 가족 스케줄</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v104·패치</div>
+      <div class="app-ver">v105·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -500,7 +500,7 @@
 
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v104·패치</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v105·패치</span><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -610,6 +610,9 @@
             <div class="nw-nth" id="nw-nth"></div>
             <div class="wd-days" id="nw-days"></div>
             <label class="wd-until">종료일 <span class="cat-note">(비우면 계속 반복)</span><input type="date" id="nw-until" onchange="updateScopeHint()" /></label>
+          </div>
+          <div class="wd-box" id="base-field" style="display:none">
+            <label class="wd-until">종료일 <span class="cat-note">(비우면 계속 반복)</span><input type="date" id="f-base-until" onchange="updateScopeHint()" /></label>
           </div>
         </div>
         <label class="pin-row"><input type="checkbox" id="f-pin" /><span>월간 달력에 표시 <span class="sub">(중요 일정)</span></span></label>
@@ -1107,13 +1110,15 @@
       if (closeOpenSwipe()) return;                              // 열린 삭제 버튼이 있으면 먼저 닫기만
       openEdit(id, dateStr);
     }
-    function toggleSelectModeMonth() {   // 월간 상세의 '선택' 버튼
+    function toggleSelectModeMonth() {
+      if (dailyEditMode) { showToast('수정 표를 먼저 저장하거나 취소해주세요'); return; }   // 월간 상세의 '선택' 버튼
       if (selMode) { exitSelMode(); return; }
       if (monthView !== 'list') setMonthView('list');
       selMode = true; selSet = {};
       refreshSelViews(); updateSelBar();
     }
-    function toggleSelectMode() {   // '선택' 버튼: 체크박스 모드 켜기/끄기 (PC·모바일 공용)
+    function toggleSelectMode() {
+      if (dailyEditMode) { showToast('수정 표를 먼저 저장하거나 취소해주세요'); return; }   // '선택' 버튼: 체크박스 모드 켜기/끄기 (PC·모바일 공용)
       if (selMode) { exitSelMode(); return; }
       if (dailyView !== 'list') setDailyView('list');   // 목록에서만
       selMode = true; selSet = {};
@@ -1245,6 +1250,9 @@
 
     /* ===== 데일리 시간표(격자) 보기 + 드래그로 시간 변경 ===== */
     var dailyEditMode = false;   // 엑셀식 '수정 표'가 지금 켜져 있는지 기억하는 스위치
+    var eeDate = '';             // 수정 표가 다루는 날짜 (데일리=오늘, 월간=선택한 날)
+    var eePerson = 'all';        // 수정 표가 다루는 담당자
+    var eeCtxMonth = false;      // 수정 표가 월간 화면에서 열렸는지
     var dailyView = 'list';
     var HRPX = 112, PXMIN = HRPX / 60;   // 1시간=112px (구글 캘린더 스케일)
     function setDailyView(v) {
@@ -1264,7 +1272,7 @@
       if (monthView === 'grid' && selectedDate) renderMonthGrid();
     }
     function renderMonthGrid() { renderGridInto('month-grid', ymdOf(monthState.y, monthState.m, selectedDate), monthDetailPerson); }
-    function setMonthView(v) { monthView = v; if (selectedDate) renderDayDetail(selectedDate); }
+    function setMonthView(v) { if (dailyEditMode) inlineCancelEdit(); monthView = v; if (selectedDate) renderDayDetail(selectedDate); }
     function renderGridInto(boxId, dateStr, person) {
       if (window.__tgDragging) return;   // 드래그 중엔 다시 그리지 않기
       var box = document.getElementById(boxId);
@@ -1534,7 +1542,7 @@
     /* ===== 데일리 (오늘) ===== */
     var currentPerson = 'all';
     function renderDaily() {
-      if (dailyEditMode) return;   // 엑셀식 '수정 표'가 켜져 있으면 목록을 다시 그리지 않음 (입력 중인 내용 보호)
+      if (dailyEditMode && !eeCtxMonth) return;   // 데일리 수정 표가 켜져 있으면 목록을 다시 그리지 않음 (입력 중인 내용 보호)
       clearTimeout(window.__lpT);   // 목록 다시 그릴 때 대기중 길게누르기 취소 (오작동 방지)
       var items = itemsForDate(todayStr);
       document.getElementById('daily-clock').innerHTML = buildClockSVG(items, currentPerson, true);
@@ -1622,7 +1630,7 @@
     function toggleDailyEdit() {
       if (dailyEditMode) { inlineCancelEdit(); return; }   // 이미 켜져 있으면 = 취소하고 목록으로
       if (selMode) exitSelMode();                          // '선택' 모드와 동시에 켜지지 않도록 정리
-      dailyEditMode = true;
+      dailyEditMode = true; eeCtxMonth = false; eeDate = todayStr; eePerson = currentPerson;
       document.getElementById('daily-list').style.display = 'none';   // 목록 감추기
       document.getElementById('daily-grid').style.display = 'none';   // 시간표 감추기
       document.getElementById('daily-edit').style.display = '';        // 수정 표 보이기
@@ -1631,18 +1639,34 @@
       renderDailyEdit();
     }
 
+    // 월간 화면의 '✏️ 수정' 버튼: 선택한 날짜의 일과를 엑셀식 표로 편집 (그 날짜 하루만 반영)
+    function toggleMonthEdit() {
+      if (dailyEditMode) { inlineCancelEdit(); return; }   // 이미 켜져 있으면 = 취소하고 목록으로
+      if (!selectedDate) return;
+      if (selMode) exitSelMode();
+      dailyEditMode = true; eeCtxMonth = true;
+      eeDate = ymdOf(monthState.y, monthState.m, selectedDate);
+      eePerson = monthDetailPerson;
+      var l = document.getElementById('detail-list'); if (l) l.style.display = 'none';
+      var g = document.getElementById('month-grid'); if (g) g.style.display = 'none';
+      var ed = document.getElementById('detail-edit'); if (ed) ed.style.display = '';
+      var b = document.getElementById('medit-toggle-btn');
+      if (b) { b.textContent = '✖ 수정 끝'; b.classList.add('on'); }
+      renderDailyEdit();
+    }
+
     // 수정 표 내용 그리기: 오늘·현재 담당자에 해당하는 '시간 있는' 일정만 (메모는 제외)
     function renderDailyEdit() {
-      var items = itemsForDate(todayStr)
-        .filter(function (r) { return !r.todo && (currentPerson === 'all' || r.who === currentPerson); })
+      var items = itemsForDate(eeDate)
+        .filter(function (r) { return !r.todo && (eePerson === 'all' || r.who === eePerson); })
         .sort(function (a, b) { return toMin(a.start) - toMin(b.start); });   // 시간 순서대로
       var rowsHTML = items.map(function (r) { return eeRowHTML(r); }).join('');
-      var whoLabel = currentPerson === 'all' ? '전체' : people[currentPerson].name;
-      var todayLabel = todayStr.slice(5).replace('-', '월 ') + '일';
-      document.getElementById('daily-edit').innerHTML =
+      var whoLabel = eePerson === 'all' ? '전체' : people[eePerson].name;
+      var todayLabel = eeDate.slice(5).replace('-', '월 ') + '일';
+      document.getElementById(eeCtxMonth ? 'detail-edit' : 'daily-edit').innerHTML =
         '<div class="ee-head">' +
           '<span class="ee-title">✏️ ' + whoLabel + ' 일과표 수정 <span style="color:var(--muted);font-weight:400">(' + todayLabel + ')</span></span>' +
-          '<span class="ee-hint">숫자만 쳐도 돼요 (530→05:30) · Enter=아랫줄 · ↑↓←→ 이동 · [저장]하면 오늘 하루만 반영</span>' +
+          '<span class="ee-hint">숫자만 쳐도 돼요 (530→05:30) · Enter=아랫줄 · ↑↓←→ 이동 · [저장]하면 이 날짜 하루만 반영</span>' +
         '</div>' +
         '<div class="ee-table" id="ee-table">' + (rowsHTML || '<div class="empty" style="padding:16px 4px;color:var(--muted)">일정이 없어요. 아래 ➕ 로 추가해보세요.</div>') + '</div>' +
         '<button class="ee-add" onclick="inlineAddRow()">➕ 한 줄 추가</button>' +
@@ -1684,7 +1708,7 @@
 
     // '➕ 한 줄 추가': 빈 줄을 표 맨 아래에 붙이기 (새 줄은 담당자도 고를 수 있음)
     function inlineAddRow() {
-      var def = currentPerson === 'all' ? 'dad' : currentPerson;   // 전체 보기면 기본 '아빠', 아니면 지금 보는 사람
+      var def = eePerson === 'all' ? 'dad' : eePerson;   // 전체 보기면 기본 '아빠', 아니면 지금 보는 사람
       var opts = ['dad', 'mom', 'child'].map(function (w) {
         return '<option value="' + w + '"' + (w === def ? ' selected' : '') + '>' + people[w].name + '</option>';
       }).join('');
@@ -1717,7 +1741,14 @@
 
     // '취소': 아무것도 저장하지 않고 표를 닫고 목록/시간표로 돌아가기
     function inlineCancelEdit() {
-      dailyEditMode = false;
+      var wasMonth = eeCtxMonth;
+      dailyEditMode = false; eeCtxMonth = false;
+      if (wasMonth) {   // 월간 화면에서 열렸으면: 표를 치우고 상세를 새로 그림
+        var edM = document.getElementById('detail-edit');
+        if (edM) { edM.style.display = 'none'; edM.innerHTML = ''; }
+        if (selectedDate) renderDayDetail(selectedDate);
+        return;
+      }
       var ed = document.getElementById('daily-edit');
       ed.style.display = 'none'; ed.innerHTML = '';
       document.getElementById('daily-list').style.display = dailyView === 'grid' ? 'none' : '';
@@ -1792,7 +1823,7 @@
       // ── 실제 반영 (전부 '그 날 하루만') ──
       function doCommit() {
         var savedScope = formScope, savedAnchor = formAnchor;   // applyEditScoped가 쓰는 전역값을 잠깐 빌렸다가 복원
-        formScope = 'day'; formAnchor = todayStr;
+        formScope = 'day'; formAnchor = eeDate;
 
         plan.del.forEach(function (id) { inlineDeleteOne(id); });   // 1) 삭제 (그날만)
 
@@ -1801,10 +1832,10 @@
         var carved = 0;
         plan.edit.concat(plan.add).forEach(function (p) {
           var vs = toMin(p.start), ve = toMin(p.end);
-          itemsForDate(todayStr).filter(function (r) {
+          itemsForDate(eeDate).filter(function (r) {
             return !r.todo && r.who === p.who && editIds.indexOf(r.id) < 0 &&
                    rangesOverlap(vs, ve, toMin(r.start), toMin(r.end));
-          }).forEach(function (cf) { carveForDate(cf, todayStr, vs, ve); carved++; });   // 앞뒤로 잘라 자리 비우기
+          }).forEach(function (cf) { carveForDate(cf, eeDate, vs, ve); carved++; });   // 앞뒤로 잘라 자리 비우기
         });
 
         plan.edit.forEach(function (p) {                            // 3) 시간·할일 수정 (그날만)
@@ -1816,17 +1847,17 @@
 
         plan.add.forEach(function (p) {                             // 4) 새 일정 추가 (그날만)
           exceptions.push(newEx({ who: p.who, start: p.start, end: p.end, title: p.title,
-            pin: false, cat: '', editor: deviceWho, todo: false, routine: false }, scopeFields('day', todayStr, [])));
+            pin: false, cat: '', editor: deviceWho, todo: false, routine: false }, scopeFields('day', eeDate, [])));
         });
 
         formScope = savedScope; formAnchor = savedAnchor;   // 빌린 전역값 원래대로 복원
 
         var n = plan.del.length + plan.edit.length + plan.add.length;
-        logChange('수정', '오늘 일과표 ' + n + '건 정리' + (carved ? ' (겹친 ' + carved + '건 조정)' : ''), '이 날짜만', deviceWho);
+        logChange('수정', eeDate.slice(5).replace('-', '/') + ' 일과표 ' + n + '건 정리' + (carved ? ' (겹친 ' + carved + '건 조정)' : ''), '이 날짜만', deviceWho);
         saveAll();
         inlineCancelEdit();   // 표 닫고 목록으로 (내부에서 renderDaily 호출)
         refreshAll();         // 시계·주간·월간까지 최신으로
-        showToast('✅ ' + n + '건 저장됨 (오늘 하루만)');
+        showToast('✅ ' + n + '건 저장됨 (' + eeDate.slice(5).replace('-', '/') + ' 하루만)');
       }
 
       if (victims.length) {   // 겹침이 있으면 확인 팝업 한 번만 → 확인해야 저장 진행
@@ -1840,9 +1871,9 @@
     function inlineDeleteOne(id) {
       var row = schedule.concat(exceptions).filter(function (r) { return r.id === id; })[0];
       if (!row) return;
-      if (isBaseItem(row)) hides.push({ baseId: row.id, scope: 'day', date: todayStr });   // 매일 기본 → 그날만 가리기
+      if (isBaseItem(row)) hides.push({ baseId: row.id, scope: 'day', date: eeDate });   // 매일 기본 → 그날만 가리기
       else if (row.scope === 'day') exceptions = exceptions.filter(function (r) { return r.id !== row.id; });
-      else detachDate(row, todayStr);                                                        // 넓은 예외 → 그날만 제외
+      else detachDate(row, eeDate);                                                        // 넓은 예외 → 그날만 제외
     }
 
     function pickPerson(btn) {
@@ -1948,8 +1979,9 @@
       }
       document.getElementById('cal-grid').innerHTML = html;
     }
-    function selectDay(d) { selectedDate = d; renderMonth(); renderDayDetail(d); }
+    function selectDay(d) { if (dailyEditMode && eeCtxMonth) inlineCancelEdit(); selectedDate = d; renderMonth(); renderDayDetail(d); }
     function renderDayDetail(d) {
+      if (dailyEditMode && eeCtxMonth) return;   // 월간 수정 표 사용 중엔 다시 그리지 않음 (입력 보호)
       var y = monthState.y, m = monthState.m, who = monthDetailPerson;
       var full = ymdOf(y, m, d);
       var dow = ['일', '월', '화', '수', '목', '금', '토'][new Date(y, m, d).getDay()];
@@ -1959,17 +1991,22 @@
         return '<button class="person' + (on ? ' active' : '') + '" data-person="' + k + '" onclick="pickDetailPerson(this)"' + style + '>' + people[k].name + '</button>';
       }).join('');
       var clock = '<div class="clock-card"><div>' + buildClockSVG(items, who, full === todayStr) + '</div><div class="legend">' + legendHTML(legendEntries(who, segmentsFor(items, who))) + '</div></div>';
-      var toggle = '<div class="view-toggle"><button id="mvt-list" class="' + (monthView === 'list' ? 'on' : '') + '" onclick="setMonthView(\'list\')">목록</button><button id="mvt-grid" class="' + (monthView === 'grid' ? 'on' : '') + '" onclick="setMonthView(\'grid\')">시간표</button><button class="bulk-btn' + (selMode ? ' on' : '') + '" id="msel-toggle-btn" onclick="toggleSelectModeMonth()">' + (selMode ? '✖ 선택 취소' : '☑️ 선택') + '</button><button class="bulk-btn" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" onclick="openBulk()">📋 일괄 적용</button></div>';
+      var toggle = '<div class="view-toggle"><button id="mvt-list" class="' + (monthView === 'list' ? 'on' : '') + '" onclick="setMonthView(\'list\')">목록</button><button id="mvt-grid" class="' + (monthView === 'grid' ? 'on' : '') + '" onclick="setMonthView(\'grid\')">시간표</button><button class="bulk-btn" id="medit-toggle-btn" onclick="toggleMonthEdit()" style="margin-left:6px">✏️ 수정</button><button class="bulk-btn' + (selMode ? ' on' : '') + '" id="msel-toggle-btn" onclick="toggleSelectModeMonth()">' + (selMode ? '✖ 선택 취소' : '☑️ 선택') + '</button><button class="bulk-btn" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" onclick="openBulk()">📋 일괄 적용</button></div>';
       document.getElementById('day-detail').innerHTML =
         '<h3>' + (m + 1) + '월 ' + d + '일 (' + dow + ') 일정</h3>' +
         '<div class="people" style="margin-top:12px">' + picker + '</div>' + clock + toggle +
         (monthView === 'list'
-          ? '<div class="list">' + listHTML(items, who, full) + '</div>'
-          : '<div id="month-grid" style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden"></div>');
+          ? '<div class="list" id="detail-list">' + listHTML(items, who, full) + '</div>'
+          : '<div id="month-grid" style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden"></div>') +
+        '<div id="detail-edit" style="display:none"></div>';
       if (monthView === 'grid') renderMonthGrid();
     }
-    function pickDetailPerson(btn) { monthDetailPerson = btn.dataset.person; renderDayDetail(selectedDate); }
+    function pickDetailPerson(btn) {
+      if (dailyEditMode) { showToast('수정 중에는 담당자를 바꿀 수 없어요 (먼저 저장/취소)'); return; }
+      monthDetailPerson = btn.dataset.person; renderDayDetail(selectedDate);
+    }
     function changeMonth(delta) {
+      if (dailyEditMode && eeCtxMonth) inlineCancelEdit();
       var d = new Date(monthState.y, monthState.m + delta, 1);
       monthState = { y: d.getFullYear(), m: d.getMonth() };
       selectedDate = null; renderMonth(); document.getElementById('day-detail').innerHTML = '';
@@ -2172,6 +2209,7 @@
       document.getElementById('wd-field').style.display = (formScope === 'weekdays') ? '' : 'none';
       document.getElementById('nw-field').style.display = (formScope === 'nthwd') ? '' : 'none';
       document.getElementById('en-field').style.display = (formScope === 'everyn') ? '' : 'none';
+      document.getElementById('base-field').style.display = (formScope === 'base') ? '' : 'none';
       if (showCal) { var a = parseYmd(formAnchor); miniState = { y: a.getFullYear(), m: a.getMonth() }; renderMiniCal(); }
       if (formScope === 'weekdays') buildWeekdayCircles();
       if (formScope === 'nthwd') {
@@ -2239,7 +2277,10 @@
           t = '매월 ' + NTH_NAMES[formNth] + ' ' + WD_NAMES[formNwDay] + '요일마다 반복' + (u2 ? (' (' + u2 + '까지)') : ' (계속)') + '돼요.';
         }
       }
-      else t = '매일(기본 일정)에 넣어요.';
+      else {
+        var bu0 = document.getElementById('f-base-until').value;
+        t = bu0 ? '오늘부터 ' + bu0 + '까지 매일 반복돼요.' : '매일(기본 일정)에 넣어요. 종료일을 정하면 그날까지만 매일 반복돼요.';
+      }
       document.getElementById('scope-hint').textContent = t;
     }
     function renderMiniCal() {
@@ -2312,7 +2353,7 @@
       document.getElementById('f-todo').checked = false; toggleTodoUI();
       pickEditor(deviceWho);
       setCat('');
-      formDays = []; document.getElementById('wd-until').value = '';
+      formDays = []; document.getElementById('wd-until').value = ''; document.getElementById('f-base-until').value = '';
       formNth = 1; formNwDay = null; document.getElementById('nw-until').value = '';
       pickScope(document.querySelector('#scope-pick .scope[data-scope="day"]'));
       document.getElementById('modal').classList.add('open');
@@ -2351,7 +2392,9 @@
       else if (S === 'year') formAnchor = row.y + '-01-01';
       else if (S === 'weekdays' || S === 'nthwd') formAnchor = row.from || dateStr;
       else formAnchor = dateStr;
-      if (!S) pickScope(document.querySelector('#scope-pick .scope[data-scope="base"]'), true);                 // 매일(기본 루틴)
+      var isAllWeek = (S === 'weekdays' && row.days && row.days.length === 7);   // 일~토 전부 = 사용자에겐 그냥 '매일'
+      document.getElementById('f-base-until').value = isAllWeek ? (row.until || '') : '';
+      if (!S || isAllWeek) pickScope(document.querySelector('#scope-pick .scope[data-scope="base"]'), true);    // 매일 (기본 루틴 또는 기간제 매일)
       else pickScope(document.querySelector('#scope-pick .scope[data-scope="' + S + '"]'), true);               // 그 외 원래 범위
       document.getElementById('modal').classList.add('open');
     }
@@ -3051,7 +3094,14 @@
       var pin = document.getElementById('f-pin').checked;
       var routine = document.getElementById('f-routine').checked;
       var vals = { who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo, routine: routine };
+      // '매일 + 종료일' = 그 기간 동안 매일 (일괄 적용과 같은 방식: 일~토 요일반복으로 저장하되, 사용자에겐 계속 '매일'로 보여줌)
+      var baseUntilPicked = false;
+      if (formScope === 'base') {
+        var bu3 = (document.getElementById('f-base-until').value || '');
+        if (bu3) { baseUntilPicked = true; formScope = 'weekdays'; formDays = [0, 1, 2, 3, 4, 5, 6]; document.getElementById('wd-until').value = bu3; }
+      }
       var scopeLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', weekdays: '요일 반복', nthwd: '매월 몇째 주', everyn: 'N일마다', base: '매일' }[formScope] || '';
+      if (baseUntilPicked) scopeLabel = '매일';
       var sfN = formScope === 'base' ? { scope: 'base' } : scopeFields(formScope, formAnchor, pickedDates);
 
       // ③ 완전히 똑같은 일정(범위까지 동일)이 이미 있으면 막기 — 새로 추가할 때만
