@@ -362,6 +362,8 @@
     .btn-mini { border: none; border-radius: 9px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; background: var(--accent); color: #fff; }
     .btn-mini.ghost { background: var(--bg); color: var(--ink); border: 1.5px solid var(--line); }
   </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
 
 <body>
@@ -369,7 +371,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v114·패치</div>
+      <div class="app-ver">v115·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -545,7 +547,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button><span class="app-ver-inline">v114</span></span><span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button><span class="app-ver-inline">v115</span></span><span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -553,7 +555,7 @@
           <button class="person"        data-person="child" onclick="pickPerson(this)">딸</button>
         </div>
         <div class="clock-card" style="position:relative"><div class="live-clock" id="live-clock"></div><div id="daily-clock"></div><div class="legend" id="daily-legend"></div></div>
-        <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" id="edit-toggle-btn" onclick="toggleDailyEdit()" style="margin-left:6px">✏️ 수정</button><button class="bulk-btn" id="sel-toggle-btn" onclick="toggleSelectMode()" style="margin-left:auto">☑️ 선택</button><button class="bulk-btn" style="margin-left:6px" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" style="margin-left:6px" onclick="openBulk()">일괄 적용</button><button class="bulk-btn" style="margin-left:6px" onclick="exportICS()" title="반복 루틴까지 구글 캘린더로 내보내기">📅 캘린더로</button></div>
+        <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" id="edit-toggle-btn" onclick="toggleDailyEdit()" style="margin-left:6px">✏️ 수정</button><button class="bulk-btn" id="sel-toggle-btn" onclick="toggleSelectMode()" style="margin-left:auto">☑️ 선택</button><button class="bulk-btn" style="margin-left:6px" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" style="margin-left:6px" onclick="openBulk()">일괄 적용</button><button class="bulk-btn" style="margin-left:6px" onclick="syncToGoogle()" title="구글 로그인 한 번으로 모든 일정을 구글 캘린더에 자동 등록">🔄 구글 동기화</button></div>
         <div class="list" id="daily-list"></div>
         <div id="daily-grid" style="display:none"></div>
         <div id="daily-edit" style="display:none"></div>
@@ -3435,6 +3437,129 @@
       var delLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', base: '매일' }[S] || '';
       logChange('삭제', people[row.who].name + ' ' + row.title, delLabel, formEditor);
       saveAll(); refreshAll(); closeModal();
+    }
+
+    /* ============================================================
+       🔄 구글 캘린더 원클릭 동기화 (구글 API 직접 연동)
+       로그인 한 번 → 버튼 한 번이면 모든 일정을 구글 캘린더에 직접 써넣음
+       ============================================================ */
+    var GCAL_CLIENT_ID = '74914490059-vmc1sj1bff3qq4l3jigbg1ig9eg9130r.apps.googleusercontent.com';
+    var GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+    var gcalToken = null;        // 로그인 후 받은 접근 토큰
+    var gcalTokenClient = null;  // 구글 로그인 클라이언트
+
+    // 앱의 반복 규칙 → 구글 캘린더 API가 받는 RRULE 배열로
+    function gcalRRULE(sf) {
+      var WD = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+      var sc = sf.scope;
+      var until = sf.until ? (';UNTIL=' + sf.until.replace(/-/g, '') + 'T235959Z') : '';
+      if (sc === 'base') return ['RRULE:FREQ=DAILY'];
+      if (sc === 'weekdays') {
+        if (sf.days && sf.days.length === 7) return ['RRULE:FREQ=DAILY' + until];
+        var byday = (sf.days || []).slice().sort().map(function (i) { return WD[i]; }).join(',');
+        return ['RRULE:FREQ=WEEKLY;BYDAY=' + byday + until];
+      }
+      if (sc === 'nthwd') return ['RRULE:FREQ=MONTHLY;BYDAY=' + sf.nth + WD[sf.day] + until];
+      if (sc === 'everyn') return ['RRULE:FREQ=DAILY;INTERVAL=' + (sf.n || 2) + until];
+      return null;   // 유한 범위(하루/이번주 등) → 반복 아님, 날짜별 개별 이벤트
+    }
+    // 하나의 일정 → 구글 캘린더 event 객체(들)
+    function gcalEvents(who, title, start, end, sf, anchorDate) {
+      var whoName = (people[who] && people[who].name) ? people[who].name : '';
+      var summary = (whoName ? whoName + ' · ' : '') + title;
+      var tz = 'Asia/Seoul';
+      function ev(dateStr) {
+        var endDate = dateStr;
+        if (toMin(end) <= toMin(start)) { var d = parseYmd(dateStr); d.setDate(d.getDate() + 1); endDate = ymd(d); }
+        return {
+          summary: summary,
+          start: { dateTime: dateStr + 'T' + start + ':00', timeZone: tz },
+          end: { dateTime: endDate + 'T' + end + ':00', timeZone: tz }
+        };
+      }
+      var rr = gcalRRULE(sf);
+      if (rr) { var e = ev(sf.from || anchorDate || todayStr); e.recurrence = rr; return [e]; }
+      // 반복 아님 → 날짜 나열
+      var days = enumScopeDates(sf) || (sf.date ? [sf.date] : []);
+      return days.map(function (d) { return ev(d); });
+    }
+    // 앱의 전체 일정을 구글 캘린더 event 배열로
+    function collectGcalEvents() {
+      var evs = [];
+      schedule.forEach(function (r) { if (!r.todo) gcalEvents(r.who, r.title, r.start, r.end, { scope: 'base' }).forEach(function (e) { evs.push(e); }); });
+      exceptions.forEach(function (E) { if (!E.todo) gcalEvents(E.who, E.title, E.start, E.end, E, E.date).forEach(function (e) { evs.push(e); }); });
+      return evs;
+    }
+
+    // 버튼: 원클릭 동기화 시작
+    function syncToGoogle() {
+      if (!window.google || !google.accounts || !google.accounts.oauth2) {
+        showToast('구글 로그인 준비 중이에요. 잠시 후 다시 눌러주세요.');
+        return;
+      }
+      if (!gcalTokenClient) {
+        gcalTokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GCAL_CLIENT_ID,
+          scope: GCAL_SCOPE,
+          callback: function (resp) {
+            if (resp && resp.access_token) { gcalToken = resp.access_token; pushEventsToGoogle(); }
+            else showToast('구글 로그인이 취소됐어요.');
+          }
+        });
+      }
+      // 토큰이 없으면 로그인 창, 있으면 바로 진행
+      if (gcalToken) pushEventsToGoogle();
+      else gcalTokenClient.requestAccessToken({ prompt: 'consent' });
+    }
+
+    // 실제로 구글 캘린더에 일정들을 써넣기
+    function pushEventsToGoogle() {
+      var events = collectGcalEvents();
+      if (!events.length) { showToast('보낼 일정이 없어요.'); return; }
+      openSyncProgress(events.length);
+      var done = 0, failed = 0, i = 0;
+      function next() {
+        if (i >= events.length) { finishSync(done, failed); return; }
+        var ev = events[i++];
+        fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + gcalToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify(ev)
+        }).then(function (r) {
+          if (r.ok) done++; else { failed++; if (r.status === 401) gcalToken = null; }
+          updateSyncProgress(done + failed, events.length);
+          setTimeout(next, 120);   // 요청 간 살짝 텀 (구글 속도 제한 회피)
+        }).catch(function () { failed++; updateSyncProgress(done + failed, events.length); setTimeout(next, 120); });
+      }
+      next();
+    }
+
+    // 진행률 팝업
+    function openSyncProgress(total) {
+      var ov = document.createElement('div');
+      ov.id = 'sync-ov';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:22px';
+      ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
+        '<b style="font-size:17px;color:var(--accent)">🔄 구글 캘린더에 동기화 중</b>' +
+        '<p id="sync-msg" style="font-size:14px;color:var(--muted);margin:12px 0">준비 중… (0 / ' + total + ')</p>' +
+        '<div style="height:8px;background:var(--line);border-radius:99px;overflow:hidden"><div id="sync-bar" style="height:100%;width:0%;background:var(--accent);transition:width .2s"></div></div>' +
+        '</div>';
+      document.body.appendChild(ov);
+    }
+    function updateSyncProgress(cur, total) {
+      var msg = document.getElementById('sync-msg'), bar = document.getElementById('sync-bar');
+      if (msg) msg.textContent = '보내는 중… (' + cur + ' / ' + total + ')';
+      if (bar) bar.style.width = Math.round(cur / total * 100) + '%';
+    }
+    function finishSync(done, failed) {
+      var ov = document.getElementById('sync-ov');
+      if (ov) ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
+        '<b style="font-size:17px;color:var(--accent)">✅ 동기화 완료</b>' +
+        '<p style="font-size:14px;color:var(--ink);margin:12px 0 4px"><b>' + done + '건</b>을 구글 캘린더에 넣었어요.' + (failed ? '<br><span style="color:var(--muted);font-size:12px">' + failed + '건은 실패(잠시 후 다시 시도)</span>' : '') + '</p>' +
+        '<p style="font-size:12px;color:var(--muted);margin-bottom:14px">이제 “헤이 구글, 오늘 일정 뭐야?”라고 물어보세요.</p>' +
+        '<button onclick="document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:13px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">확인</button>' +
+        '</div>';
+      logChange('동기화', '구글 캘린더 ' + done + '건', '전체', deviceWho);
     }
 
     /* ============================================================
