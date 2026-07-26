@@ -44,6 +44,10 @@
     .header h1 { font-size: 19px; font-weight: 600; }
     .header .date { margin-top: 3px; font-size: 13px; color: var(--muted); }
     .header .app-ver { font-size: 10px; color: #C9C6BB; margin-top: 1px; }
+    .month-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .title-with-ver { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+    #daily-title, #month-title, #week-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .app-ver-inline { font-size: 10px; color: #C4C1B8; font-weight: 400; flex-shrink: 0; letter-spacing: -0.02em; }
     .content { flex: 1; overflow-y: auto; padding: 18px 16px; }
     .tabbar { display: flex; border-top: 1px solid var(--line); background: var(--card); padding-bottom: env(safe-area-inset-bottom); }
     .tab { flex: 1; border: none; background: none; padding: 9px 0 8px; color: var(--muted); font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -213,7 +217,8 @@
     .center-alert.show .ca-box { transform: scale(1); }
     .center-alert .ca-ic { font-size: 20px; }
     .reset-pins-btn { width: 100%; margin: 4px 0 10px; padding: 11px; border: 1.5px solid var(--line); background: var(--bg); color: var(--muted); border-radius: 12px; font-family: inherit; font-size: 13px; cursor: pointer; }
-    .month-title-row { display: flex; align-items: center; justify-content: space-between; }
+    .month-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .month-title-row > span[style*="margin-left"], .month-title-row > span[style*="flex-shrink"] { flex-shrink: 0; }
     .pin-off-mini { border: 1.5px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 5px 11px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 
     /* 시간표(격자) 보기 */
@@ -361,7 +366,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v110·패치</div>
+      <div class="app-ver">v112·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -537,7 +542,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v110·패치</span><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><span id="daily-title">데일리 · 오늘</span><span class="app-ver-inline">v112</span></span><span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -545,7 +550,7 @@
           <button class="person"        data-person="child" onclick="pickPerson(this)">딸</button>
         </div>
         <div class="clock-card" style="position:relative"><div class="live-clock" id="live-clock"></div><div id="daily-clock"></div><div class="legend" id="daily-legend"></div></div>
-        <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" id="edit-toggle-btn" onclick="toggleDailyEdit()" style="margin-left:6px">✏️ 수정</button><button class="bulk-btn" id="sel-toggle-btn" onclick="toggleSelectMode()" style="margin-left:auto">☑️ 선택</button><button class="bulk-btn" style="margin-left:6px" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" style="margin-left:6px" onclick="openBulk()">일괄 적용</button></div>
+        <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" id="edit-toggle-btn" onclick="toggleDailyEdit()" style="margin-left:6px">✏️ 수정</button><button class="bulk-btn" id="sel-toggle-btn" onclick="toggleSelectMode()" style="margin-left:auto">☑️ 선택</button><button class="bulk-btn" style="margin-left:6px" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" style="margin-left:6px" onclick="openBulk()">일괄 적용</button><button class="bulk-btn" style="margin-left:6px" onclick="exportICS()" title="반복 루틴까지 구글 캘린더로 내보내기">📅 캘린더로</button></div>
         <div class="list" id="daily-list"></div>
         <div id="daily-grid" style="display:none"></div>
         <div id="daily-edit" style="display:none"></div>
@@ -3425,6 +3430,101 @@
       var delLabel = { day: '이 날짜만', weekFrom: '이 주', month: '이 달', year: '올해', dates: '직접 선택', base: '매일' }[S] || '';
       logChange('삭제', people[row.who].name + ' ' + row.title, delLabel, formEditor);
       saveAll(); refreshAll(); closeModal();
+    }
+
+    /* ============================================================
+       📅 구글 캘린더로 내보내기 (.ics) — 반복 루틴까지 통째로
+       앱의 반복 규칙을 달력 표준 RRULE로 바꿔, 반복 일정 하나로 깔끔하게 내보냄
+       ============================================================ */
+    var WD_ICS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];   // 요일 → .ics 코드
+    function icsDT(dateStr, timeStr) { return dateStr.replace(/-/g, '') + 'T' + timeStr.replace(':', '') + '00'; }
+    function icsUntil(dateStr) { return dateStr.replace(/-/g, '') + 'T235959'; }
+    function icsEsc(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
+    // 하나의 일정(기본/예외)을 .ics VEVENT 문자열로 — 반복이면 RRULE 포함
+    function eventToVEvents(who, title, start, end, sf, uidSeed) {
+      // sf: { scope, date/from/until/days/nth/day/ym/y/weekEnd/dates/n } 형태
+      var whoName = (people[who] && people[who].name) ? people[who].name : '';
+      var summary = icsEsc(whoName ? (whoName + ' · ' + title) : title);
+      var out = [];
+      function block(dateStr, rrule) {
+        var endDate = dateStr;
+        if (toMin(end) <= toMin(start)) { var d = parseYmd(dateStr); d.setDate(d.getDate() + 1); endDate = ymd(d); }   // 자정 넘김
+        var uid = 'ouri-' + uidSeed + '-' + dateStr.replace(/-/g, '') + '@ohneuluri';
+        var v = ['BEGIN:VEVENT', 'UID:' + uid,
+          'DTSTART;TZID=Asia/Seoul:' + icsDT(dateStr, start),
+          'DTEND;TZID=Asia/Seoul:' + icsDT(endDate, end),
+          'SUMMARY:' + summary];
+        if (rrule) v.push('RRULE:' + rrule);
+        v.push('END:VEVENT');
+        return v.join('\r\n');
+      }
+      var sc = sf.scope;
+      if (sc === 'base') {                                             // 매일 (끝없음)
+        out.push(block(todayStr, 'FREQ=DAILY'));
+      } else if (sc === 'weekdays') {
+        var byday = (sf.days || []).slice().sort().map(function (i) { return WD_ICS[i]; }).join(',');
+        if (sf.days && sf.days.length === 7) {                         // 일~토 전체 = 매일
+          out.push(block(sf.from || todayStr, 'FREQ=DAILY' + (sf.until ? ';UNTIL=' + icsUntil(sf.until) : '')));
+        } else {
+          out.push(block(sf.from || todayStr, 'FREQ=WEEKLY;BYDAY=' + byday + (sf.until ? ';UNTIL=' + icsUntil(sf.until) : '')));
+        }
+      } else if (sc === 'nthwd') {                                     // 매월 몇째 주 O요일
+        out.push(block(sf.from || todayStr, 'FREQ=MONTHLY;BYDAY=' + sf.nth + WD_ICS[sf.day] + (sf.until ? ';UNTIL=' + icsUntil(sf.until) : '')));
+      } else if (sc === 'everyn') {                                    // N일마다
+        out.push(block(sf.from || todayStr, 'FREQ=DAILY;INTERVAL=' + (sf.n || 2) + (sf.until ? ';UNTIL=' + icsUntil(sf.until) : '')));
+      } else {                                                        // 유한 범위(이 주/달/해/직접선택/하루) → 날짜 나열
+        var days = enumScopeDates(sf) || (sf.date ? [sf.date] : []);
+        days.forEach(function (d) { out.push(block(d, null)); });
+      }
+      return out;
+    }
+    // 전체 일정 → .ics 파일 텍스트
+    function buildICS() {
+      var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//오늘의 우리//KR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+        'BEGIN:VTIMEZONE', 'TZID:Asia/Seoul', 'BEGIN:STANDARD', 'DTSTART:19700101T000000',
+        'TZOFFSETFROM:+0900', 'TZOFFSETTO:+0900', 'TZNAME:KST', 'END:STANDARD', 'END:VTIMEZONE'];
+      var seed = 0;
+      // 1) 기본(매일) 일정
+      schedule.forEach(function (r) {
+        if (r.todo) return;
+        eventToVEvents(r.who, r.title, r.start, r.end, { scope: 'base' }, 'b' + (seed++)).forEach(function (v) { lines.push(v); });
+      });
+      // 2) 예외/반복 일정 (메모(todo)와 '가림'은 제외)
+      exceptions.forEach(function (E) {
+        if (E.todo) return;
+        eventToVEvents(E.who, E.title, E.start, E.end, E, 'e' + (seed++)).forEach(function (v) { lines.push(v); });
+      });
+      lines.push('END:VCALENDAR');
+      return lines.join('\r\n');
+    }
+    function exportICS() {
+      var text = buildICS();
+      var blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = '오늘의우리_일정.ics';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+      openICSGuide();
+    }
+    // 내보낸 뒤 '구글 캘린더 가져오기' 방법 안내
+    function openICSGuide() {
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:22px';
+      ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+      ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:400px;width:100%;padding:22px 20px">' +
+        '<b style="font-size:17px;color:var(--accent)">📅 구글 캘린더로 가져오기</b>' +
+        '<p style="font-size:13px;color:var(--muted);margin:6px 0 14px">방금 <b>오늘의우리_일정.ics</b> 파일이 저장됐어요. 아래 순서로 넣으면 반복 루틴까지 그대로 들어가요.</p>' +
+        '<ol style="font-size:14px;line-height:1.8;padding-left:20px;margin-bottom:8px">' +
+          '<li>PC에서 <b>calendar.google.com</b> 접속</li>' +
+          '<li>오른쪽 위 <b>⚙️ 설정 → 가져오기/내보내기</b></li>' +
+          '<li><b>가져오기</b>에서 방금 받은 .ics 파일 선택</li>' +
+          '<li><b>가져오기</b> 버튼 클릭 → 완료!</li>' +
+        '</ol>' +
+        '<div style="background:var(--bg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin:10px 0 4px">💡 이후 “헤이 구글, 오늘 일정 뭐야?”라고 물으면 구글이 읽어줘요. 루틴을 바꾸면 다시 내보내 주세요.</div>' +
+        '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;margin-top:12px;padding:13px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">확인</button>' +
+      '</div>';
+      document.body.appendChild(ov);
     }
 
     /* 구글 캘린더에 이 일정을 보내기 (제목·날짜·시간이 채워진 채로 열려요) */
