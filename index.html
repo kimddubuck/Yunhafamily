@@ -51,6 +51,10 @@
     .day-nav { border: none; background: transparent; color: var(--accent); font-size: 15px; cursor: pointer; padding: 2px 6px; border-radius: 8px; flex-shrink: 0; line-height: 1; }
     .day-nav:hover { background: var(--teal-soft, #EAF4F3); }
     .day-today { border: 1.5px solid var(--accent); background: var(--card); color: var(--accent); font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 10px; cursor: pointer; flex-shrink: 0; margin-left: 2px; }
+    .hist-btn.icon-btn { padding: 6px 8px; font-size: 14px; }
+    #daily-title { font-weight: 700; }
+    #screen-daily .screen-title { flex-wrap: nowrap; }
+    #screen-daily .title-with-ver { flex: 1 1 auto; min-width: 0; }
     .content { flex: 1; overflow-y: auto; padding: 18px 16px; }
     .tabbar { display: flex; border-top: 1px solid var(--line); background: var(--card); padding-bottom: env(safe-area-inset-bottom); }
     .tab { flex: 1; border: none; background: none; padding: 9px 0 8px; color: var(--muted); font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -371,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v116·패치</div>
+      <div class="app-ver">v118·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -534,10 +538,11 @@
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px">설정은 3분, 그다음부터는 자동이에요.</p>
 
         <div class="hp-step"><b>1️⃣ 하루를 한 번만 설계</b><p>오늘 일과를 채우고(📄 엑셀 붙여넣기 가능) → <b>일괄 적용 → 매일 + 종료일</b> → 연말까지 매일 반복되는 루틴 완성!</p></div>
-        <div class="hp-step"><b>2️⃣ 부부의 하루를 한눈에</b><p>시계 차트로 오늘을, 주간·월간으로 흐름을 봐요. <b>전체</b>를 누르면 아빠·엄마·아이가 나란히 비교돼요.</p></div>
+        <div class="hp-step"><b>2️⃣ 우리 가족의 하루를 한눈에</b><p>시계 차트로 오늘을, 주간·월간으로 흐름을 봐요. <b>전체</b>를 누르면 아빠·엄마·아이가 나란히 비교돼요.</p></div>
         <div class="hp-step"><b>3️⃣ 일정은 그냥 추가</b><p>➕로 새 일정을 넣으면 <b>루틴이 알아서 비켜줘요</b> (하루만·요일 반복 모두). 🔁가 꺼진 소중한 일정과 겹치면 목록으로 먼저 물어봐요.</p></div>
         <div class="hp-step"><b>4️⃣ ✏️ 수정 표 (PC 추천)</b><p>시간 칸에 <b>530만 쳐도 05:30</b> · Enter=아랫줄 · 방향키 이동. 데일리와 월간 어느 날짜든 돼요. 저장하면 <b>그 날짜 하루만</b> 반영!</p></div>
         <div class="hp-step"><b>5️⃣ 실수해도 안전</b><p>모든 변경은 <b>🕘 수정내역</b>에 남고 ↩️ 되돌리기가 돼요. 반복 삭제·덮어쓰기는 반드시 확인창이 먼저 물어봐요.</p></div>
+        <div class="hp-step"><b>6️⃣ 구글 캘린더 동기화</b><p>데일리의 <b>🔄 구글 동기화</b>를 누르면 반복 루틴까지 <b>「오늘의 우리」 캘린더</b>에 자동 등록돼요. 눌러도 <b>중복 없이</b> 오늘 이후만 최신으로 갱신돼요 (과거 기록은 보존). 이후 <b>“헤이 구글, 오늘 일정 뭐야?”</b>로 물어볼 수 있어요.</p></div>
 
         <div style="background:var(--bg);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--muted);margin-top:6px">
           💡 <b style="color:var(--accent)">🔁 루틴 표시란?</b> "새 일정이 오면 비켜주는 배경 일정"이라는 뜻이에요. 병원 예약처럼 지키고 싶은 일정은 🔁를 끄세요.
@@ -547,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button><span class="app-ver-inline">v116</span></span><span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v118</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3555,10 +3560,23 @@
         // 순차 삭제 (속도 제한 회피)
         return ids.reduce(function (chain, id) {
           return chain.then(function () {
-            return gcalFetch('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events/' + id, { method: 'DELETE' })
-              .then(function () { return new Promise(function (res) { setTimeout(res, 80); }); });
+            return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events/' + id, { method: 'DELETE' })
+              .then(function () { return new Promise(function (res) { setTimeout(res, 100); }); });
           });
         }, Promise.resolve());
+      });
+    }
+
+    // 재시도 포함 요청: 속도제한(403/429)·충돌(409)이면 잠깐 쉬고 다시 (최대 4회)
+    function gcalFetchRetry(url, opts, tries) {
+      tries = tries || 0;
+      return gcalFetch(url, opts).then(function (r) {
+        if (r.ok || r.status === 404) return r;   // 404(이미 없음)는 삭제 성공으로 취급
+        if ((r.status === 403 || r.status === 429 || r.status === 409 || r.status >= 500) && tries < 4) {
+          var wait = 400 * Math.pow(2, tries);   // 400 → 800 → 1600 → 3200ms
+          return new Promise(function (res) { setTimeout(res, wait); }).then(function () { return gcalFetchRetry(url, opts, tries + 1); });
+        }
+        return r;
       });
     }
 
@@ -3571,29 +3589,35 @@
       ensureOuriCalendar()
         .then(function (id) { calId = id; updateSyncStage('이전 미래 일정 정리 중…'); return clearFutureEvents(calId); })
         .then(function () {
+          // 삭제한 반복 일정이 구글 내부에서 정리될 시간을 잠깐 줌 (충돌 방지)
+          updateSyncStage('잠시 정리 중…');
+          return new Promise(function (res) { setTimeout(res, 1500); });
+        })
+        .then(function () {
           updateSyncStage('일정 등록 중…');
           var done = 0, failed = 0, i = 0;
           return new Promise(function (resolve) {
             function next() {
               if (i >= events.length) { finishSync(done, failed); resolve(); return; }
               var ev = events[i++];
-              gcalFetch('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events', {
+              gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events', {
                 method: 'POST', body: JSON.stringify(ev)
               }).then(function (r) {
                 if (r.ok) done++; else { failed++; if (r.status === 401) gcalToken = null; }
                 updateSyncProgress(done + failed, events.length);
-                setTimeout(next, 100);
-              }).catch(function () { failed++; updateSyncProgress(done + failed, events.length); setTimeout(next, 100); });
+                setTimeout(next, 150);
+              }).catch(function () { failed++; updateSyncProgress(done + failed, events.length); setTimeout(next, 150); });
             }
             next();
           });
         })
         .catch(function (err) {
+          gcalToken = null;   // 대부분 토큰 만료/권한 문제 → 다시 로그인하도록
           var ov = document.getElementById('sync-ov');
           if (ov) ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
             '<b style="font-size:16px;color:var(--warn,#C0392B)">동기화 중 문제가 생겼어요</b>' +
-            '<p style="font-size:13px;color:var(--muted);margin:10px 0 14px">잠시 후 다시 시도하거나, 로그인을 다시 해보세요.</p>' +
-            '<button onclick="gcalToken=null;document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:12px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">닫기</button></div>';
+            '<p style="font-size:13px;color:var(--muted);margin:10px 0 14px">다시 🔄 구글 동기화를 눌러 로그인부터 해보세요. 계속 안 되면 잠시 후 시도해주세요.</p>' +
+            '<button onclick="document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:12px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">닫기</button></div>';
         });
     }
     function updateSyncStage(txt) { var m = document.getElementById('sync-msg'); if (m) m.textContent = txt; }
