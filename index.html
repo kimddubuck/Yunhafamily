@@ -231,6 +231,9 @@
     .memo-ttl { font-size: 16px; color: var(--ink); cursor: pointer; padding: 4px 2px; word-break: break-all; }
     .memo-x { border: none; background: transparent; font-size: 15px; cursor: pointer; padding: 6px; border-radius: 8px; }
     .memo-x:hover { background: #FBECEC; }
+    .memo-item.date-memo { grid-template-columns: 52px 1fr 36px; }
+    .memo-date { font-size: 13px; font-weight: 700; color: var(--accent); text-align: center; font-variant-numeric: tabular-nums; }
+    .memo-who { font-size: 12px; font-weight: 600; margin-left: 8px; }
 
     /* ===== 사용법 화면 ===== */
     .hp-step { border:1.5px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
@@ -358,7 +361,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v109·패치</div>
+      <div class="app-ver">v110·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -534,7 +537,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v109·패치</span><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span id="daily-title">데일리 · 오늘</span><span style="display:flex;align-items:center;gap:8px"><span class="app-ver" style="margin:0">v110·패치</span><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -2116,17 +2119,45 @@
     function renderMemos() {
       var box = document.getElementById('memo-list');
       if (!box) return;
-      if (!memos.length) {
+      // 날짜형 메모: 일반 추가창에서 '📝 메모' 체크하고 날짜와 함께 저장한 것들 (exceptions 중 todo:true)
+      var dateMemos = exceptions.filter(function (e) { return e.todo && e.scope === 'day' && e.date; })
+        .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });   // 날짜 순
+      if (!memos.length && !dateMemos.length) {
         box.innerHTML = '<div class="empty" style="padding:40px 16px;text-align:center;color:var(--muted)">아직 메모가 없어요.<br>아래 ➕ 로 “언젠가 할 일”을 적어보세요.<br><span style="font-size:12px">예: 장보기 · 예방접종 예약 · 자동차 점검</span></div>';
         return;
       }
-      box.innerHTML = memos.map(function (m) {
+      var html = '';
+      // ① 순수 메모 (날짜 없이) — 먼저
+      html += memos.map(function (m) {
         return '<div class="memo-item' + (m.done ? ' done' : '') + '">' +
           '<button class="memo-chk" onclick="toggleMemoDone(' + m.id + ')" aria-label="완료 표시">' + (m.done ? '✅' : '⬜') + '</button>' +
           '<span class="memo-ttl" onclick="openMemoEdit(' + m.id + ')">' + escapeHtml(m.title) + '</span>' +
           '<button class="memo-x" onclick="deleteMemo(' + m.id + ')" title="메모 삭제">🗑</button>' +
         '</div>';
       }).join('');
+      // ② 날짜형 메모 — 날짜 배지와 함께, 날짜 순으로 아래
+      html += dateMemos.map(function (e) {
+        var badge = e.date.slice(5).replace('-', '/');   // 2026-07-28 → 07/28
+        var whoTag = e.who && people[e.who] ? '<span class="memo-who" style="color:' + people[e.who].color + '">' + people[e.who].name + '</span>' : '';
+        return '<div class="memo-item date-memo">' +
+          '<span class="memo-date">' + badge + '</span>' +
+          '<span class="memo-ttl" onclick="openDateMemo(' + e.id + ')">' + escapeHtml(e.title) + whoTag + '</span>' +
+          '<button class="memo-x" onclick="deleteDateMemo(' + e.id + ')" title="메모 삭제">🗑</button>' +
+        '</div>';
+      }).join('');
+      box.innerHTML = html;
+    }
+    // 날짜형 메모를 눌러 수정창 열기 (기존 일정 수정 흐름 그대로 — 날짜·시간·메모 해제 가능)
+    function openDateMemo(id) {
+      var e = exceptions.filter(function (x) { return x.id === id; })[0];
+      if (!e) return;
+      switchTab('daily');                    // 수정 결과를 바로 확인할 수 있게 데일리로
+      openEdit(e, e.date);
+    }
+    function deleteDateMemo(id) {
+      exceptions = exceptions.filter(function (x) { return x.id !== id; });
+      logChange('삭제', '메모 정리', '메모', deviceWho);
+      saveAll(); renderMemos();
     }
     function toggleMemoDone(id) {
       var m = memos.filter(function (x) { return x.id === id; })[0];
