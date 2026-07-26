@@ -371,7 +371,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v115·패치</div>
+      <div class="app-ver">v116·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -547,7 +547,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button><span class="app-ver-inline">v115</span></span><span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button><span class="app-ver-inline">v116</span></span><span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><button class="hist-btn" onclick="openHelp()">❓ 사용법</button><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3444,7 +3444,7 @@
        로그인 한 번 → 버튼 한 번이면 모든 일정을 구글 캘린더에 직접 써넣음
        ============================================================ */
     var GCAL_CLIENT_ID = '74914490059-vmc1sj1bff3qq4l3jigbg1ig9eg9130r.apps.googleusercontent.com';
-    var GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+    var GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar';   // 전용 캘린더 생성·관리까지
     var gcalToken = null;        // 로그인 후 받은 접근 토큰
     var gcalTokenClient = null;  // 구글 로그인 클라이언트
 
@@ -3463,7 +3463,7 @@
       if (sc === 'everyn') return ['RRULE:FREQ=DAILY;INTERVAL=' + (sf.n || 2) + until];
       return null;   // 유한 범위(하루/이번주 등) → 반복 아님, 날짜별 개별 이벤트
     }
-    // 하나의 일정 → 구글 캘린더 event 객체(들)
+    // 하나의 일정 → 구글 캘린더 event 객체(들) — 반복은 '오늘부터', 하루짜리는 오늘 이후만
     function gcalEvents(who, title, start, end, sf, anchorDate) {
       var whoName = (people[who] && people[who].name) ? people[who].name : '';
       var summary = (whoName ? whoName + ' · ' : '') + title;
@@ -3478,9 +3478,14 @@
         };
       }
       var rr = gcalRRULE(sf);
-      if (rr) { var e = ev(sf.from || anchorDate || todayStr); e.recurrence = rr; return [e]; }
-      // 반복 아님 → 날짜 나열
-      var days = enumScopeDates(sf) || (sf.date ? [sf.date] : []);
+      if (rr) {
+        // 반복: 시작일을 오늘로 당김 (앱의 일괄 적용처럼 오늘부터 종료일까지)
+        var startFrom = todayStr;
+        if (sf.from && sf.from > todayStr) startFrom = sf.from;   // 아직 시작 안 한 미래 반복이면 원래 시작일
+        var e = ev(startFrom); e.recurrence = rr; return [e];
+      }
+      // 반복 아님 → 날짜 나열하되 오늘 이후만
+      var days = (enumScopeDates(sf) || (sf.date ? [sf.date] : [])).filter(function (d) { return d >= todayStr; });
       return days.map(function (d) { return ev(d); });
     }
     // 앱의 전체 일정을 구글 캘린더 event 배열로
@@ -3513,26 +3518,85 @@
     }
 
     // 실제로 구글 캘린더에 일정들을 써넣기
+    // 실제 동기화: ① 전용 캘린더 확보 → ② 오늘 이후(미래) 일정만 삭제 → ③ 앱 일정을 다시 채움 (과거는 보존)
+    var GCAL_CAL_NAME = '오늘의 우리';
+    function gcalFetch(url, opts) {
+      opts = opts || {}; opts.headers = opts.headers || {};
+      opts.headers['Authorization'] = 'Bearer ' + gcalToken;
+      if (opts.body) opts.headers['Content-Type'] = 'application/json';
+      return fetch(url, opts);
+    }
+    // 전용 캘린더 id 찾기(없으면 생성)
+    function ensureOuriCalendar() {
+      return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var found = (data.items || []).filter(function (c) { return c.summary === GCAL_CAL_NAME; })[0];
+          if (found) return found.id;
+          return gcalFetch('https://www.googleapis.com/calendar/v3/calendars', {
+            method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, timeZone: 'Asia/Seoul' })
+          }).then(function (r) { return r.json(); }).then(function (c) { return c.id; });
+        });
+    }
+    // 전용 캘린더에서 '오늘 0시 이후' 일정만 모두 삭제 (과거는 그대로)
+    function clearFutureEvents(calId) {
+      var timeMin = todayStr + 'T00:00:00+09:00';
+      var ids = [];
+      function page(token) {
+        var url = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) +
+          '/events?timeMin=' + encodeURIComponent(timeMin) + '&showDeleted=false&singleEvents=false&maxResults=250' +
+          (token ? '&pageToken=' + token : '');
+        return gcalFetch(url).then(function (r) { return r.json(); }).then(function (data) {
+          (data.items || []).forEach(function (e) { if (e.id) ids.push(e.id); });
+          if (data.nextPageToken) return page(data.nextPageToken);
+        });
+      }
+      return page(null).then(function () {
+        // 순차 삭제 (속도 제한 회피)
+        return ids.reduce(function (chain, id) {
+          return chain.then(function () {
+            return gcalFetch('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events/' + id, { method: 'DELETE' })
+              .then(function () { return new Promise(function (res) { setTimeout(res, 80); }); });
+          });
+        }, Promise.resolve());
+      });
+    }
+
     function pushEventsToGoogle() {
       var events = collectGcalEvents();
       if (!events.length) { showToast('보낼 일정이 없어요.'); return; }
       openSyncProgress(events.length);
-      var done = 0, failed = 0, i = 0;
-      function next() {
-        if (i >= events.length) { finishSync(done, failed); return; }
-        var ev = events[i++];
-        fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + gcalToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify(ev)
-        }).then(function (r) {
-          if (r.ok) done++; else { failed++; if (r.status === 401) gcalToken = null; }
-          updateSyncProgress(done + failed, events.length);
-          setTimeout(next, 120);   // 요청 간 살짝 텀 (구글 속도 제한 회피)
-        }).catch(function () { failed++; updateSyncProgress(done + failed, events.length); setTimeout(next, 120); });
-      }
-      next();
+      var calId = null;
+      updateSyncStage('전용 캘린더 준비 중…');
+      ensureOuriCalendar()
+        .then(function (id) { calId = id; updateSyncStage('이전 미래 일정 정리 중…'); return clearFutureEvents(calId); })
+        .then(function () {
+          updateSyncStage('일정 등록 중…');
+          var done = 0, failed = 0, i = 0;
+          return new Promise(function (resolve) {
+            function next() {
+              if (i >= events.length) { finishSync(done, failed); resolve(); return; }
+              var ev = events[i++];
+              gcalFetch('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events', {
+                method: 'POST', body: JSON.stringify(ev)
+              }).then(function (r) {
+                if (r.ok) done++; else { failed++; if (r.status === 401) gcalToken = null; }
+                updateSyncProgress(done + failed, events.length);
+                setTimeout(next, 100);
+              }).catch(function () { failed++; updateSyncProgress(done + failed, events.length); setTimeout(next, 100); });
+            }
+            next();
+          });
+        })
+        .catch(function (err) {
+          var ov = document.getElementById('sync-ov');
+          if (ov) ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
+            '<b style="font-size:16px;color:var(--warn,#C0392B)">동기화 중 문제가 생겼어요</b>' +
+            '<p style="font-size:13px;color:var(--muted);margin:10px 0 14px">잠시 후 다시 시도하거나, 로그인을 다시 해보세요.</p>' +
+            '<button onclick="gcalToken=null;document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:12px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">닫기</button></div>';
+        });
     }
+    function updateSyncStage(txt) { var m = document.getElementById('sync-msg'); if (m) m.textContent = txt; }
 
     // 진행률 팝업
     function openSyncProgress(total) {
@@ -3555,11 +3619,11 @@
       var ov = document.getElementById('sync-ov');
       if (ov) ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
         '<b style="font-size:17px;color:var(--accent)">✅ 동기화 완료</b>' +
-        '<p style="font-size:14px;color:var(--ink);margin:12px 0 4px"><b>' + done + '건</b>을 구글 캘린더에 넣었어요.' + (failed ? '<br><span style="color:var(--muted);font-size:12px">' + failed + '건은 실패(잠시 후 다시 시도)</span>' : '') + '</p>' +
-        '<p style="font-size:12px;color:var(--muted);margin-bottom:14px">이제 “헤이 구글, 오늘 일정 뭐야?”라고 물어보세요.</p>' +
+        '<p style="font-size:14px;color:var(--ink);margin:12px 0 4px"><b>「오늘의 우리」 캘린더</b>에 <b>' + done + '건</b>을 넣었어요.' + (failed ? '<br><span style="color:var(--muted);font-size:12px">' + failed + '건은 실패(잠시 후 다시 시도)</span>' : '') + '</p>' +
+        '<p style="font-size:12px;color:var(--muted);margin-bottom:14px">오늘 이후만 최신으로 갱신했어요 (과거 기록은 그대로). 이제 “헤이 구글, 오늘 일정 뭐야?” 해보세요.</p>' +
         '<button onclick="document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:13px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">확인</button>' +
         '</div>';
-      logChange('동기화', '구글 캘린더 ' + done + '건', '전체', deviceWho);
+      logChange('동기화', '구글 캘린더 ' + done + '건 (미래 갱신)', '전체', deviceWho);
     }
 
     /* ============================================================
