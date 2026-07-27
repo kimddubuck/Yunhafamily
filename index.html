@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v132·패치</div>
+      <div class="app-ver">v133·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -542,7 +542,7 @@
         <div class="hp-step"><b>3️⃣ 일정은 그냥 추가</b><p>➕로 새 일정을 넣으면 <b>루틴이 알아서 비켜줘요</b> (하루만·요일 반복 모두). 🔁가 꺼진 소중한 일정과 겹치면 목록으로 먼저 물어봐요.</p></div>
         <div class="hp-step"><b>4️⃣ ✏️ 수정 표 (PC 추천)</b><p>시간 칸에 <b>530만 쳐도 05:30</b> · Enter=아랫줄 · 방향키 이동. 데일리와 월간 어느 날짜든 돼요. 저장하면 <b>그 날짜 하루만</b> 반영!</p></div>
         <div class="hp-step"><b>5️⃣ 실수해도 안전</b><p>모든 변경은 <b>🕘 수정내역</b>에 남고 ↩️ 되돌리기가 돼요. 반복 삭제·덮어쓰기는 반드시 확인창이 먼저 물어봐요.</p></div>
-        <div class="hp-step"><b>6️⃣ 구글 캘린더 동기화</b><p>데일리의 <b>🔄 구글 동기화</b>를 누르면 반복 루틴까지 <b>「오늘의 우리」 캘린더</b>에 자동 등록돼요. 눌러도 <b>중복 없이</b> 오늘 이후만 최신으로 갱신돼요 (과거 기록은 보존). 이후 <b>“헤이 구글, 오늘 일정 뭐야?”</b>로 물어볼 수 있어요.</p></div>
+        <div class="hp-step"><b>6️⃣ 구글 캘린더 동기화</b><p>데일리의 <b>🔄 구글 동기화</b>를 누르면 앱의 모든 일정(반복 루틴 포함)이 <b>「오늘의 우리」 캘린더</b>에 자동 등록돼요. 처음 한 번은 구글 로그인이 필요해요.<br><br>• <b>🔄 (동기화)</b> — 실제로 일정을 올리는 버튼. 일정을 바꿀 때마다 이것만 누르면 돼요.<br>• <b>🔍 (상태 확인)</b> — 연결이 잘 됐는지 <b>보기만</b> 하는 버튼. 동기화가 안 될 때만 써요.<br><br>💡 <b>몇 번을 눌러도 중복은 절대 안 생겨요.</b> 누를 때마다 전용 캘린더를 비우고 앱 화면 그대로 다시 채우거든요 (앱이 원본, 구글이 거울). 이후 <b>“헤이 구글, 오늘 일정 뭐야?”</b>로 물어볼 수 있어요.</p></div>
 
         <div style="background:var(--bg);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--muted);margin-top:6px">
           💡 <b style="color:var(--accent)">🔁 루틴 표시란?</b> "새 일정이 오면 비켜주는 배경 일정"이라는 뜻이에요. 병원 예약처럼 지키고 싶은 일정은 🔁를 끄세요.
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v132</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v133</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
