@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v120·패치</div>
+      <div class="app-ver">v121·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v120</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v121</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3595,11 +3595,12 @@
     }
 
     function clearFutureEvents(calId, onProgress) {
-      var timeMin = todayStr + 'T00:00:00+09:00';
+      // 전용 「오늘의 우리」 캘린더는 우리 앱 전용이므로 통째로 비우고 새로 채움.
+      // (timeMin으로 거르면 '과거에 시작한 반복 마스터'가 안 잡혀 중복이 남는 문제가 있어 전체 조회)
       var ids = [];
       function page(token) {
         var url = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) +
-          '/events?timeMin=' + encodeURIComponent(timeMin) + '&showDeleted=false&singleEvents=false&maxResults=250' +
+          '/events?showDeleted=false&singleEvents=false&maxResults=250' +
           (token ? '&pageToken=' + token : '');
         return gcalFetch(url).then(function (r) { return r.json(); }).then(function (data) {
           (data.items || []).forEach(function (e) { if (e.id) ids.push(e.id); });
