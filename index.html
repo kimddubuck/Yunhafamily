@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v123·패치</div>
+      <div class="app-ver">v124·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v123</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v124</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3530,7 +3530,13 @@
         }
         list.forEach(function (e) { evs.push(e); });
       });
-      return evs;
+      // ★ 최종 안전장치: 똑같은 일정(제목+시간+반복)이 어떤 이유로든 2개 모였으면 1개만 남김
+      var seen = {}, out = [];
+      evs.forEach(function (e) {
+        var key = e.summary + '|' + e.start.dateTime + '|' + e.end.dateTime + '|' + JSON.stringify(e.recurrence || null);
+        if (!seen[key]) { seen[key] = true; out.push(e); }
+      });
+      return out;
     }
     // 예외 E가 fromDate(포함) 이후 처음으로 실제 적용되는 날짜 (제외일·범위 모두 반영). 최대 400일 탐색.
     function firstAppliedDayFrom(E, fromDate) {
@@ -3580,55 +3586,7 @@
       if (opts.body) opts.headers['Content-Type'] = 'application/json';
       return fetch(url, opts);
     }
-    // 전용 캘린더 id 찾기(없으면 생성)
-    // 「오늘의 우리」 이름의 캘린더를 '전부 삭제'하고 새로 하나 생성 → 항상 깨끗한 빈 캘린더에서 시작
-    // (이벤트를 하나씩 지우는 대신 캘린더 통삭제라 훨씬 빠르고, 같은 이름이 여러 개여도 전부 정리됨)
-    function ensureFreshOuriCalendar() {
-      return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250')
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          var mine = (data.items || []).filter(function (c) { return c.summary === GCAL_CAL_NAME; });
-          return runInBatches(mine, 3, function (c) {
-            return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id), { method: 'DELETE' });
-          }, null);
-        })
-        .then(function () {
-          return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars', {
-            method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, timeZone: 'Asia/Seoul' })
-          }).then(function (r) { return r.json(); }).then(function (c) { return c.id; });
-        });
-    }
-    // 예전 버전(v115)이 '기본 캘린더'에 직접 넣었던 잔재를 청소 — "아빠 · ", "엄마 · ", "딸 · " 형식만 정밀 삭제
-    function cleanupPrimaryLeftovers(onProgress) {
-      var names = Object.keys(people).map(function (k) { return people[k].name; });
-      var ids = [];
-      var chain = Promise.resolve();
-      names.forEach(function (nm) {
-        chain = chain.then(function () {
-          function page(token) {
-            var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?q=' + encodeURIComponent(nm + ' · ') +
-              '&maxResults=250&singleEvents=false' + (token ? '&pageToken=' + token : '');
-            return gcalFetch(url).then(function (r) { return r.json(); }).then(function (d) {
-              (d.items || []).forEach(function (e) {
-                if (e.id && e.summary && e.summary.indexOf(nm + ' · ') === 0) ids.push(e.id);   // 정확히 우리 형식으로 시작하는 것만
-              });
-              if (d.nextPageToken) return page(d.nextPageToken);
-            });
-          }
-          return page(null);
-        });
-      });
-      return chain.then(function () {
-        var uniq = ids.filter(function (v, i) { return ids.indexOf(v) === i; });
-        if (onProgress) onProgress(0, uniq.length);
-        return runInBatches(uniq, 5, function (id) {
-          return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/primary/events/' + id, { method: 'DELETE' });
-        }, function (n) { if (onProgress) onProgress(n, uniq.length); });
-      });
-    }
-    // 전용 캘린더에서 '오늘 0시 이후' 일정만 모두 삭제 (과거는 그대로)
     // 여러 작업을 '한 번에 batchSize개씩' 병렬 실행 (구글 속도제한 안 걸리게 묶음 단위)
-    // onEach(item) → Promise 를 반환. onProgress(완료수)로 진행률 알림.
     function runInBatches(items, batchSize, onEach, onProgress) {
       var idx = 0, doneCount = 0;
       return new Promise(function (resolve) {
@@ -3640,27 +3598,35 @@
             return onEach(it).then(function () { doneCount++; if (onProgress) onProgress(doneCount); })
               .catch(function () { doneCount++; if (onProgress) onProgress(doneCount); });
           })).then(function () {
-            setTimeout(launchBatch, 120);   // 배치 사이 살짝 텀
+            setTimeout(launchBatch, 120);
           });
         }
         launchBatch();
       });
     }
-
-    function clearFutureEvents(calId, onProgress) {
-      // 전용 「오늘의 우리」 캘린더는 우리 앱 전용이므로 통째로 비우고 새로 채움.
-      // (timeMin으로 거르면 '과거에 시작한 반복 마스터'가 안 잡혀 중복이 남는 문제가 있어 전체 조회)
+    // 재시도 포함 요청: 속도제한(403/429)·충돌(409)·서버오류면 잠깐 쉬고 다시 (최대 4회). 404/410(이미 없음)은 성공 취급.
+    function gcalFetchRetry(url, opts, tries) {
+      tries = tries || 0;
+      return gcalFetch(url, opts).then(function (r) {
+        if (r.ok || r.status === 404 || r.status === 410) return r;
+        if ((r.status === 403 || r.status === 429 || r.status === 409 || r.status >= 500) && tries < 4) {
+          var wait = 400 * Math.pow(2, tries);
+          return new Promise(function (res) { setTimeout(res, wait); }).then(function () { return gcalFetchRetry(url, opts, tries + 1); });
+        }
+        return r;
+      });
+    }
+    // 캘린더 안의 '모든' 이벤트 삭제 (목록 확정 → 병렬 삭제) — timeMin 없이 전체라 과거 시작 반복 마스터도 빠짐없이 잡음
+    function wipeCalendarEvents(calId, onProgress) {
       var ids = [];
       function page(token) {
         var url = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) +
-          '/events?showDeleted=false&singleEvents=false&maxResults=250' +
-          (token ? '&pageToken=' + token : '');
+          '/events?showDeleted=false&singleEvents=false&maxResults=250' + (token ? '&pageToken=' + token : '');
         return gcalFetch(url).then(function (r) { return r.json(); }).then(function (data) {
           (data.items || []).forEach(function (e) { if (e.id) ids.push(e.id); });
           if (data.nextPageToken) return page(data.nextPageToken);
         });
       }
-      // ① 삭제 대상 '목록을 먼저 확정' → ② 그 목록만 병렬 삭제 (새로 등록될 일정은 이 목록에 없으므로 안전)
       return page(null).then(function () {
         if (onProgress) onProgress(0, ids.length);
         return runInBatches(ids, 5, function (id) {
@@ -3668,19 +3634,68 @@
         }, function (n) { if (onProgress) onProgress(n, ids.length); });
       });
     }
-
-    // 재시도 포함 요청: 속도제한(403/429)·충돌(409)이면 잠깐 쉬고 다시 (최대 4회)
-    function gcalFetchRetry(url, opts, tries) {
-      tries = tries || 0;
-      return gcalFetch(url, opts).then(function (r) {
-        if (r.ok || r.status === 404) return r;   // 404(이미 없음)는 삭제 성공으로 취급
-        if ((r.status === 403 || r.status === 429 || r.status === 409 || r.status >= 500) && tries < 4) {
-          var wait = 400 * Math.pow(2, tries);   // 400 → 800 → 1600 → 3200ms
-          return new Promise(function (res) { setTimeout(res, wait); }).then(function () { return gcalFetchRetry(url, opts, tries + 1); });
-        }
-        return r;
+    // 「오늘의 우리」 캘린더 준비 — 원칙: 동기화가 끝나면 이 이름의 캘린더는 '딱 1개'만, 내용은 '빈 상태'로 시작
+    // ① 같은 이름(숨김 포함) 전부 삭제 → ② 재확인 → ③ 다 지워졌으면 새로 1개 생성
+    // ④ 혹시 삭제가 막히면(권한 등) 남은 것들의 '내용물을 싹 비우고' 첫 번째 것을 재사용 — 어떤 경우에도 사용자 손 안 대게
+    function prepareFreshOuriCalendar(onWipe) {
+      function listMine() {
+        return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true')
+          .then(function (r) { return r.json(); })
+          .then(function (d) { return (d.items || []).filter(function (c) { return c.summary === GCAL_CAL_NAME; }); });
+      }
+      function delAll(list) {
+        return runInBatches(list, 3, function (c) {
+          return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id), { method: 'DELETE' });
+        }, null);
+      }
+      function createNew() {
+        return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars', {
+          method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, timeZone: 'Asia/Seoul' })
+        }).then(function (r) {
+          if (!r.ok) throw new Error('전용 캘린더 생성에 실패했어요. 잠시 후 다시 시도해주세요.');
+          return r.json();
+        }).then(function (c) { return c.id; });
+      }
+      return listMine().then(function (mine) {
+        if (!mine.length) return createNew();
+        return delAll(mine).then(listMine).then(function (remain) {
+          if (!remain.length) return createNew();
+          // 삭제가 막힘 → 남은 캘린더들의 이벤트를 전부 비워서라도 반드시 깨끗하게, 첫 번째를 재사용
+          var chain = Promise.resolve();
+          remain.forEach(function (c) { chain = chain.then(function () { return wipeCalendarEvents(c.id, onWipe); }); });
+          return chain.then(function () { return remain[0].id; });
+        });
       });
     }
+    // 예전 버전이 '기본 캘린더'에 직접 넣었던 잔재 청소
+    // 검색(q)은 한글·특수문자를 못 찾을 수 있어 쓰지 않고, 전체 목록을 직접 훑어 "아빠 · " 형식만 정확히 골라 삭제
+    function cleanupPrimaryLeftovers(onProgress) {
+      var prefixes = Object.keys(people).map(function (k) { return people[k].name + ' · '; });
+      var ids = [];
+      function page(token, pageNo) {
+        var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=2500&singleEvents=false' +
+          (token ? '&pageToken=' + encodeURIComponent(token) : '');
+        return gcalFetch(url).then(function (r) { return r.json(); }).then(function (d) {
+          (d.items || []).forEach(function (e) {
+            if (!e.id || !e.summary) return;
+            for (var i = 0; i < prefixes.length; i++) { if (e.summary.indexOf(prefixes[i]) === 0) { ids.push(e.id); break; } }
+          });
+          if (d.nextPageToken && pageNo < 8) return page(d.nextPageToken, pageNo + 1);
+        });
+      }
+      return page(null, 0).then(function () {
+        var uniq = ids.filter(function (v, i) { return ids.indexOf(v) === i; });
+        var failCnt = 0;
+        if (onProgress) onProgress(0, uniq.length);
+        return runInBatches(uniq, 5, function (id) {
+          return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/primary/events/' + id, { method: 'DELETE' })
+            .then(function (r) { if (!(r.ok || r.status === 404 || r.status === 410)) failCnt++; });
+        }, function (n) { if (onProgress) onProgress(n, uniq.length); }).then(function () {
+          return { found: uniq.length, failed: failCnt };
+        });
+      });
+    }
+    var lastPrimaryCleanup = null;   // 마지막 잔재 청소 결과 (완료창 표시용)
 
     function pushEventsToGoogle() {
       var events = collectGcalEvents();
@@ -3689,14 +3704,19 @@
       var calId = null;
       // ① 예전 버전이 기본 캘린더에 남긴 잔재 청소 (유령·중복의 근원)
       updateSyncStage('옛 동기화 잔재 청소 중…');
+      lastPrimaryCleanup = null;
       cleanupPrimaryLeftovers(function (n, total) {
         var m = document.getElementById('sync-msg');
         if (m && total > 0) m.textContent = '옛 잔재 청소 중… (' + n + ' / ' + total + ')';
       })
-        .then(function () {
-          // ② 「오늘의 우리」 캘린더를 통째로 새로 만듦 (같은 이름 전부 삭제 → 빈 캘린더 생성 = 중복 원천 차단)
-          updateSyncStage('전용 캘린더 새로 준비 중…');
-          return ensureFreshOuriCalendar();
+        .then(function (info) {
+          lastPrimaryCleanup = info;   // {found, failed}
+          // ② 「오늘의 우리」 캘린더 준비: 전부 삭제→새 캘린더 (막히면 비워서 재사용) = 어떤 경우에도 깨끗한 시작
+          updateSyncStage('전용 캘린더 준비 중…');
+          return prepareFreshOuriCalendar(function (n, total) {
+            var m = document.getElementById('sync-msg');
+            if (m && total > 0) m.textContent = '캘린더 비우는 중… (' + n + ' / ' + total + ')';
+          });
         })
         .then(function (id) {
           calId = id;
@@ -3722,7 +3742,7 @@
           var ov = document.getElementById('sync-ov');
           if (ov) ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
             '<b style="font-size:16px;color:var(--warn,#C0392B)">동기화 중 문제가 생겼어요</b>' +
-            '<p style="font-size:13px;color:var(--muted);margin:10px 0 14px">다시 🔄 구글 동기화를 눌러 로그인부터 해보세요. 계속 안 되면 잠시 후 시도해주세요.</p>' +
+            '<p style="font-size:13px;color:var(--muted);margin:10px 0 14px">' + ((err && err.message) ? err.message : '다시 🔄 구글 동기화를 눌러 로그인부터 해보세요.') + '</p>' +
             '<button onclick="document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:12px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">닫기</button></div>';
         });
     }
@@ -3749,8 +3769,9 @@
       var ov = document.getElementById('sync-ov');
       if (ov) ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
         '<b style="font-size:17px;color:var(--accent)">✅ 동기화 완료</b>' +
-        '<p style="font-size:14px;color:var(--ink);margin:12px 0 4px"><b>「오늘의 우리」 캘린더</b>에 <b>' + done + '건</b>을 넣었어요.' + (failed ? '<br><span style="color:var(--muted);font-size:12px">' + failed + '건은 실패(잠시 후 다시 시도)</span>' : '') + '</p>' +
-        '<p style="font-size:12px;color:var(--muted);margin-bottom:14px">오늘 이후만 최신으로 갱신했어요 (과거 기록은 그대로). 이제 “헤이 구글, 오늘 일정 뭐야?” 해보세요.</p>' +
+        '<p style="font-size:14px;color:var(--ink);margin:12px 0 4px"><b>「오늘의 우리」 캘린더</b>를 새로 비우고 <b>' + done + '건</b>을 채웠어요.' + (failed ? '<br><span style="color:var(--warn,#C0392B);font-size:12px">⚠️ ' + failed + '건 등록 실패 — 다시 한 번 동기화해주세요</span>' : '') + '</p>' +
+        ((lastPrimaryCleanup && lastPrimaryCleanup.found) ? '<p style="font-size:12px;color:var(--muted);margin:0 0 4px">기본 캘린더의 옛 잔재 ' + lastPrimaryCleanup.found + '건도 정리했어요.' + (lastPrimaryCleanup.failed ? ' (' + lastPrimaryCleanup.failed + '건 실패)' : '') + '</p>' : '') +
+        '<p style="font-size:12px;color:var(--muted);margin-bottom:14px">앱 화면과 똑같은 상태예요. 이제 “헤이 구글, 오늘 일정 뭐야?” 해보세요.</p>' +
         '<button onclick="document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:13px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">확인</button>' +
         '</div>';
       logChange('동기화', '구글 캘린더 ' + done + '건 (미래 갱신)', '전체', deviceWho);
