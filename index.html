@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v119·패치</div>
+      <div class="app-ver">v120·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v119</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v120</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3484,9 +3484,8 @@
       }
       var rr = gcalRRULE(sf);
       if (rr) {
-        // 반복: 시작일을 오늘로 당김 (앱의 일괄 적용처럼 오늘부터 종료일까지)
-        var startFrom = todayStr;
-        if (sf.from && sf.from > todayStr) startFrom = sf.from;   // 아직 시작 안 한 미래 반복이면 원래 시작일
+        // 반복 시작일: 오늘 이후 실제로 처음 나타나는 날 (collect에서 firstAppliedDayFrom로 넘겨줌)
+        var startFrom = anchorDate && anchorDate >= todayStr ? anchorDate : todayStr;
         var e = ev(startFrom); e.recurrence = rr; return [e];
       }
       // 반복 아님 → 날짜 나열하되 오늘 이후만
@@ -3494,11 +3493,42 @@
       return days.map(function (d) { return ev(d); });
     }
     // 앱의 전체 일정을 구글 캘린더 event 배열로
+    // 구글로 보낼 일정 모으기 — '실제로 화면에 뜨는 것'만 (취소·제외된 유령 데이터 차단)
     function collectGcalEvents() {
       var evs = [];
-      schedule.forEach(function (r) { if (!r.todo) gcalEvents(r.who, r.title, r.start, r.end, { scope: 'base' }).forEach(function (e) { evs.push(e); }); });
-      exceptions.forEach(function (E) { if (!E.todo) gcalEvents(E.who, E.title, E.start, E.end, E, E.date).forEach(function (e) { evs.push(e); }); });
+      // 1) 기본(매일) 일정: 오늘 실제로 가려지지 않은 것만 반복으로 등록
+      schedule.forEach(function (r) {
+        if (r.todo) return;
+        if (hiddenOn(r.id, todayStr)) return;   // 오늘 가려진 매일 일정은 제외
+        gcalEvents(r.who, r.title, r.start, r.end, { scope: 'base' }).forEach(function (e) { evs.push(e); });
+      });
+      // 2) 예외/반복 일정: '오늘 이후 실제로 적용되는 날이 하나라도 있는지' 확인된 것만
+      exceptions.forEach(function (E) {
+        if (E.todo) return;
+        if (!E.title || !E.start || !E.end) return;   // 제목·시간 없는 유령 데이터 방어
+        // 이 예외가 실제로 나타나는 '오늘 이후 첫 날'을 찾음 (없으면 유령 → 건너뜀)
+        var firstDay = firstAppliedDayFrom(E, todayStr);
+        if (!firstDay) return;
+        gcalEvents(E.who, E.title, E.start, E.end, E, firstDay).forEach(function (e) { evs.push(e); });
+      });
       return evs;
+    }
+    // 예외 E가 fromDate(포함) 이후 처음으로 실제 적용되는 날짜 (제외일·범위 모두 반영). 최대 400일 탐색.
+    function firstAppliedDayFrom(E, fromDate) {
+      // 하루/직접선택 등 유한 범위는 enumScopeDates로 정확히
+      var ds = enumScopeDates(mergeInto({}, E));
+      if (ds && ds.length) {
+        var future = ds.filter(function (d) { return d >= fromDate; }).sort();
+        return future.length ? future[0] : null;
+      }
+      // 끝없는 반복(매일·요일반복 등): 하루씩 최대 400일 스캔
+      var d = parseYmd(fromDate);
+      for (var i = 0; i < 400; i++) {
+        var ymdStr = ymd(d);
+        if (appliesOn(E, ymdStr)) return ymdStr;
+        d.setDate(d.getDate() + 1);
+      }
+      return null;
     }
 
     // 버튼: 원클릭 동기화 시작
