@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v124·패치</div>
+      <div class="app-ver">v125·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v124</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v125</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3634,37 +3634,35 @@
         }, function (n) { if (onProgress) onProgress(n, ids.length); });
       });
     }
-    // 「오늘의 우리」 캘린더 준비 — 원칙: 동기화가 끝나면 이 이름의 캘린더는 '딱 1개'만, 내용은 '빈 상태'로 시작
-    // ① 같은 이름(숨김 포함) 전부 삭제 → ② 재확인 → ③ 다 지워졌으면 새로 1개 생성
-    // ④ 혹시 삭제가 막히면(권한 등) 남은 것들의 '내용물을 싹 비우고' 첫 번째 것을 재사용 — 어떤 경우에도 사용자 손 안 대게
-    function prepareFreshOuriCalendar(onWipe) {
+    // 「오늘의 우리」 캘린더 준비 — 원칙: 캘린더는 '재사용', 내용물만 싹 비움
+    // (구글은 캘린더 생성/삭제를 반복하면 생성을 일시 차단하므로, 지웠다 만들지 않고 비워서 재사용)
+    function prepareOuriCalendar(onWipe) {
       function listMine() {
         return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true')
           .then(function (r) { return r.json(); })
           .then(function (d) { return (d.items || []).filter(function (c) { return c.summary === GCAL_CAL_NAME; }); });
       }
-      function delAll(list) {
-        return runInBatches(list, 3, function (c) {
-          return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id), { method: 'DELETE' });
-        }, null);
-      }
       function createNew() {
         return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars', {
           method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, timeZone: 'Asia/Seoul' })
         }).then(function (r) {
-          if (!r.ok) throw new Error('전용 캘린더 생성에 실패했어요. 잠시 후 다시 시도해주세요.');
+          if (!r.ok) throw new Error('구글이 새 캘린더 생성을 잠시 제한하고 있어요 (여러 번 만들면 몇 분~몇 시간 차단돼요). 잠시 후 다시 시도하거나, 급하면 구글 캘린더에서 「' + GCAL_CAL_NAME + '」 이름의 캘린더를 직접 하나 만들어두세요 — 동기화가 그걸 그대로 재사용해요.');
           return r.json();
         }).then(function (c) { return c.id; });
       }
       return listMine().then(function (mine) {
-        if (!mine.length) return createNew();
-        return delAll(mine).then(listMine).then(function (remain) {
-          if (!remain.length) return createNew();
-          // 삭제가 막힘 → 남은 캘린더들의 이벤트를 전부 비워서라도 반드시 깨끗하게, 첫 번째를 재사용
-          var chain = Promise.resolve();
-          remain.forEach(function (c) { chain = chain.then(function () { return wipeCalendarEvents(c.id, onWipe); }); });
-          return chain.then(function () { return remain[0].id; });
-        });
+        if (!mine.length) return createNew();   // 처음 한 번만 생성
+        var mainId = mine[0].id;
+        // ① 같은 이름 캘린더 '전부'의 내용물을 비움 (몇 개가 있든 화면엔 아무것도 안 남게)
+        var chain = Promise.resolve();
+        mine.forEach(function (c) { chain = chain.then(function () { return wipeCalendarEvents(c.id, onWipe); }); });
+        // ② 여분(2번째부터)은 비워진 뒤 삭제 '시도' — 실패해도 이미 비어있어 중복은 절대 없음
+        return chain.then(function () {
+          var extras = mine.slice(1);
+          return runInBatches(extras, 3, function (c) {
+            return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id), { method: 'DELETE' });
+          }, null);
+        }).then(function () { return mainId; });
       });
     }
     // 예전 버전이 '기본 캘린더'에 직접 넣었던 잔재 청소
@@ -3713,7 +3711,7 @@
           lastPrimaryCleanup = info;   // {found, failed}
           // ② 「오늘의 우리」 캘린더 준비: 전부 삭제→새 캘린더 (막히면 비워서 재사용) = 어떤 경우에도 깨끗한 시작
           updateSyncStage('전용 캘린더 준비 중…');
-          return prepareFreshOuriCalendar(function (n, total) {
+          return prepareOuriCalendar(function (n, total) {
             var m = document.getElementById('sync-msg');
             if (m && total > 0) m.textContent = '캘린더 비우는 중… (' + n + ' / ' + total + ')';
           });
