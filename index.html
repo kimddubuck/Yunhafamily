@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v121·패치</div>
+      <div class="app-ver">v123·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v121</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v123</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3488,28 +3488,47 @@
         var startFrom = anchorDate && anchorDate >= todayStr ? anchorDate : todayStr;
         var e = ev(startFrom); e.recurrence = rr; return [e];
       }
-      // 반복 아님 → 날짜 나열하되 오늘 이후만
-      var days = (enumScopeDates(sf) || (sf.date ? [sf.date] : [])).filter(function (d) { return d >= todayStr; });
+      // 반복 아님 → 날짜 나열하되 '오늘 이후 + 실제 적용되는 날'만 (제외일 반영 = 화면과 동일)
+      var days = (enumScopeDates(sf) || (sf.date ? [sf.date] : [])).filter(function (d) { return d >= todayStr && appliesOn(sf, d); });
       return days.map(function (d) { return ev(d); });
     }
     // 앱의 전체 일정을 구글 캘린더 event 배열로
-    // 구글로 보낼 일정 모으기 — '실제로 화면에 뜨는 것'만 (취소·제외된 유령 데이터 차단)
+    // 반복 이벤트에 '이 날들은 빼줘'(EXDATE) 추가 — 앱에서 가리거나 제외한 날을 구글에도 똑같이 반영
+    function addExdates(e, dates, startHHMM) {
+      if (!dates || !dates.length || !e.recurrence) return;
+      var line = 'EXDATE;TZID=Asia/Seoul:' + dates.map(function (d) { return d.replace(/-/g, '') + 'T' + startHHMM.replace(':', '') + '00'; }).join(',');
+      e.recurrence = e.recurrence.concat([line]);
+    }
+    // 구글로 보낼 일정 모으기 — 원칙: '앱 화면에 보이는 것 = 구글' (그 외엔 아무것도 안 보냄)
     function collectGcalEvents() {
       var evs = [];
-      // 1) 기본(매일) 일정: 오늘 실제로 가려지지 않은 것만 반복으로 등록
+      // 1) 기본(매일) 일정: 오늘부터 400일을 실제로 훑어 ①첫 등장일부터 반복 ②가려진 날은 EXDATE로 제외
       schedule.forEach(function (r) {
         if (r.todo) return;
-        if (hiddenOn(r.id, todayStr)) return;   // 오늘 가려진 매일 일정은 제외
-        gcalEvents(r.who, r.title, r.start, r.end, { scope: 'base' }).forEach(function (e) { evs.push(e); });
+        var startFrom = null, exDays = [];
+        var d = parseYmd(todayStr);
+        for (var i = 0; i < 400; i++) {
+          var ds = ymd(d);
+          if (hiddenOn(r.id, ds)) { if (startFrom) exDays.push(ds); }
+          else if (!startFrom) startFrom = ds;
+          d.setDate(d.getDate() + 1);
+        }
+        if (!startFrom) return;   // 400일 내내 가려짐 → 화면에 안 보이므로 안 보냄
+        var e = gcalEvents(r.who, r.title, r.start, r.end, { scope: 'base' }, startFrom)[0];
+        addExdates(e, exDays, r.start);
+        evs.push(e);
       });
-      // 2) 예외/반복 일정: '오늘 이후 실제로 적용되는 날이 하나라도 있는지' 확인된 것만
+      // 2) 예외/반복 일정: 실제 첫 적용일부터 + '이 날짜만 삭제'한 날은 EXDATE로 제외
       exceptions.forEach(function (E) {
         if (E.todo) return;
-        if (!E.title || !E.start || !E.end) return;   // 제목·시간 없는 유령 데이터 방어
-        // 이 예외가 실제로 나타나는 '오늘 이후 첫 날'을 찾음 (없으면 유령 → 건너뜀)
+        if (!E.title || !E.start || !E.end) return;   // 깨진 데이터 방어
         var firstDay = firstAppliedDayFrom(E, todayStr);
-        if (!firstDay) return;
-        gcalEvents(E.who, E.title, E.start, E.end, E, firstDay).forEach(function (e) { evs.push(e); });
+        if (!firstDay) return;   // 오늘 이후 화면에 안 나타남 → 안 보냄
+        var list = gcalEvents(E.who, E.title, E.start, E.end, E, firstDay);
+        if (list.length === 1 && list[0].recurrence) {
+          addExdates(list[0], (E.excl || []).filter(function (d) { return d > firstDay; }), E.start);
+        }
+        list.forEach(function (e) { evs.push(e); });
       });
       return evs;
     }
@@ -3562,16 +3581,50 @@
       return fetch(url, opts);
     }
     // 전용 캘린더 id 찾기(없으면 생성)
-    function ensureOuriCalendar() {
-      return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList')
+    // 「오늘의 우리」 이름의 캘린더를 '전부 삭제'하고 새로 하나 생성 → 항상 깨끗한 빈 캘린더에서 시작
+    // (이벤트를 하나씩 지우는 대신 캘린더 통삭제라 훨씬 빠르고, 같은 이름이 여러 개여도 전부 정리됨)
+    function ensureFreshOuriCalendar() {
+      return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250')
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          var found = (data.items || []).filter(function (c) { return c.summary === GCAL_CAL_NAME; })[0];
-          if (found) return found.id;
-          return gcalFetch('https://www.googleapis.com/calendar/v3/calendars', {
+          var mine = (data.items || []).filter(function (c) { return c.summary === GCAL_CAL_NAME; });
+          return runInBatches(mine, 3, function (c) {
+            return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id), { method: 'DELETE' });
+          }, null);
+        })
+        .then(function () {
+          return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars', {
             method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, timeZone: 'Asia/Seoul' })
           }).then(function (r) { return r.json(); }).then(function (c) { return c.id; });
         });
+    }
+    // 예전 버전(v115)이 '기본 캘린더'에 직접 넣었던 잔재를 청소 — "아빠 · ", "엄마 · ", "딸 · " 형식만 정밀 삭제
+    function cleanupPrimaryLeftovers(onProgress) {
+      var names = Object.keys(people).map(function (k) { return people[k].name; });
+      var ids = [];
+      var chain = Promise.resolve();
+      names.forEach(function (nm) {
+        chain = chain.then(function () {
+          function page(token) {
+            var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?q=' + encodeURIComponent(nm + ' · ') +
+              '&maxResults=250&singleEvents=false' + (token ? '&pageToken=' + token : '');
+            return gcalFetch(url).then(function (r) { return r.json(); }).then(function (d) {
+              (d.items || []).forEach(function (e) {
+                if (e.id && e.summary && e.summary.indexOf(nm + ' · ') === 0) ids.push(e.id);   // 정확히 우리 형식으로 시작하는 것만
+              });
+              if (d.nextPageToken) return page(d.nextPageToken);
+            });
+          }
+          return page(null);
+        });
+      });
+      return chain.then(function () {
+        var uniq = ids.filter(function (v, i) { return ids.indexOf(v) === i; });
+        if (onProgress) onProgress(0, uniq.length);
+        return runInBatches(uniq, 5, function (id) {
+          return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/primary/events/' + id, { method: 'DELETE' });
+        }, function (n) { if (onProgress) onProgress(n, uniq.length); });
+      });
     }
     // 전용 캘린더에서 '오늘 0시 이후' 일정만 모두 삭제 (과거는 그대로)
     // 여러 작업을 '한 번에 batchSize개씩' 병렬 실행 (구글 속도제한 안 걸리게 묶음 단위)
@@ -3634,21 +3687,21 @@
       if (!events.length) { showToast('보낼 일정이 없어요.'); return; }
       openSyncProgress(events.length);
       var calId = null;
-      updateSyncStage('전용 캘린더 준비 중…');
-      ensureOuriCalendar()
+      // ① 예전 버전이 기본 캘린더에 남긴 잔재 청소 (유령·중복의 근원)
+      updateSyncStage('옛 동기화 잔재 청소 중…');
+      cleanupPrimaryLeftovers(function (n, total) {
+        var m = document.getElementById('sync-msg');
+        if (m && total > 0) m.textContent = '옛 잔재 청소 중… (' + n + ' / ' + total + ')';
+      })
+        .then(function () {
+          // ② 「오늘의 우리」 캘린더를 통째로 새로 만듦 (같은 이름 전부 삭제 → 빈 캘린더 생성 = 중복 원천 차단)
+          updateSyncStage('전용 캘린더 새로 준비 중…');
+          return ensureFreshOuriCalendar();
+        })
         .then(function (id) {
           calId = id;
-          updateSyncStage('이전 미래 일정 정리 중…');
-          // ② 삭제: 목록 확정 후 그 목록만 병렬 삭제 (다 끝날 때까지 대기)
-          return clearFutureEvents(calId, function (n, total) {
-            var m = document.getElementById('sync-msg');
-            if (m) m.textContent = '이전 일정 정리 중… (' + n + ' / ' + total + ')';
-          });
-        })
-        .then(function () {
-          // ③ 삭제 완전 종료 확인 후 잠깐 대기 (구글 내부 정리 시간)
-          updateSyncStage('잠시 정리 중…');
-          return new Promise(function (res) { setTimeout(res, 1200); });
+          // ③ 구글 내부 반영 잠깐 대기
+          return new Promise(function (res) { setTimeout(res, 600); });
         })
         .then(function () {
           // ④ 등록: 이제부터 넣는 건 삭제 대상 목록에 애초에 없었음 → 손실 불가능
