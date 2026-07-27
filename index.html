@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v125·패치</div>
+      <div class="app-ver">v126·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v125</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v126</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3451,7 +3451,15 @@
     var GCAL_CLIENT_ID = '74914490059-vmc1sj1bff3qq4l3jigbg1ig9eg9130r.apps.googleusercontent.com';
     var GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar';   // 전용 캘린더 생성·관리까지
     var gcalToken = null;        // 로그인 후 받은 접근 토큰
+    var gcalTokenAt = 0;         // 토큰 받은 시각 (구글 토큰은 약 1시간 뒤 만료 → 50분 지나면 자동 재로그인)
     var gcalTokenClient = null;  // 구글 로그인 클라이언트
+    // 응답을 JSON으로 — 단, 로그인 만료(401)는 '빈 목록'으로 오인하지 않고 정확히 알림
+    function gcalJson(url, opts) {
+      return gcalFetch(url, opts).then(function (r) {
+        if (r.status === 401) { gcalToken = null; throw new Error('구글 로그인이 만료됐어요. 🔄 구글 동기화를 다시 눌러 로그인해주세요.'); }
+        return r.json();
+      });
+    }
 
     // 앱의 반복 규칙 → 구글 캘린더 API가 받는 RRULE 배열로
     function gcalRRULE(sf) {
@@ -3567,14 +3575,14 @@
           client_id: GCAL_CLIENT_ID,
           scope: GCAL_SCOPE,
           callback: function (resp) {
-            if (resp && resp.access_token) { gcalToken = resp.access_token; pushEventsToGoogle(); }
+            if (resp && resp.access_token) { gcalToken = resp.access_token; gcalTokenAt = Date.now(); pushEventsToGoogle(); }
             else showToast('구글 로그인이 취소됐어요.');
           }
         });
       }
-      // 토큰이 없으면 로그인 창, 있으면 바로 진행
-      if (gcalToken) pushEventsToGoogle();
-      else gcalTokenClient.requestAccessToken({ prompt: 'consent' });
+      // 토큰이 신선(50분 이내)하면 바로, 지났으면 조용히 재발급, 처음이면 로그인 창
+      if (gcalToken && (Date.now() - gcalTokenAt) < 50 * 60 * 1000) pushEventsToGoogle();
+      else gcalTokenClient.requestAccessToken({ prompt: gcalToken ? '' : 'consent' });
     }
 
     // 실제로 구글 캘린더에 일정들을 써넣기
@@ -3622,7 +3630,7 @@
       function page(token) {
         var url = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) +
           '/events?showDeleted=false&singleEvents=false&maxResults=250' + (token ? '&pageToken=' + token : '');
-        return gcalFetch(url).then(function (r) { return r.json(); }).then(function (data) {
+        return gcalJson(url).then(function (data) {
           (data.items || []).forEach(function (e) { if (e.id) ids.push(e.id); });
           if (data.nextPageToken) return page(data.nextPageToken);
         });
@@ -3638,14 +3646,15 @@
     // (구글은 캘린더 생성/삭제를 반복하면 생성을 일시 차단하므로, 지웠다 만들지 않고 비워서 재사용)
     function prepareOuriCalendar(onWipe) {
       function listMine() {
-        return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true')
-          .then(function (r) { return r.json(); })
-          .then(function (d) { return (d.items || []).filter(function (c) { return c.summary === GCAL_CAL_NAME; }); });
+        var norm = function (t) { return String(t || '').replace(/\s+/g, ''); };   // 띄어쓰기 차이 무시
+        return gcalJson('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true')
+          .then(function (d) { return (d.items || []).filter(function (c) { return norm(c.summary) === norm(GCAL_CAL_NAME); }); });
       }
       function createNew() {
         return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars', {
           method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, timeZone: 'Asia/Seoul' })
         }).then(function (r) {
+          if (r.status === 401) { gcalToken = null; throw new Error('구글 로그인이 만료됐어요. 🔄 구글 동기화를 다시 눌러 로그인해주세요.'); }
           if (!r.ok) throw new Error('구글이 새 캘린더 생성을 잠시 제한하고 있어요 (여러 번 만들면 몇 분~몇 시간 차단돼요). 잠시 후 다시 시도하거나, 급하면 구글 캘린더에서 「' + GCAL_CAL_NAME + '」 이름의 캘린더를 직접 하나 만들어두세요 — 동기화가 그걸 그대로 재사용해요.');
           return r.json();
         }).then(function (c) { return c.id; });
@@ -3673,7 +3682,7 @@
       function page(token, pageNo) {
         var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=2500&singleEvents=false' +
           (token ? '&pageToken=' + encodeURIComponent(token) : '');
-        return gcalFetch(url).then(function (r) { return r.json(); }).then(function (d) {
+        return gcalJson(url).then(function (d) {
           (d.items || []).forEach(function (e) {
             if (!e.id || !e.summary) return;
             for (var i = 0; i < prefixes.length; i++) { if (e.summary.indexOf(prefixes[i]) === 0) { ids.push(e.id); break; } }
