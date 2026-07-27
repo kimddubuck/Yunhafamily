@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v126·패치</div>
+      <div class="app-ver">v127·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v126</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v127</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3451,6 +3451,7 @@
     var GCAL_CLIENT_ID = '74914490059-vmc1sj1bff3qq4l3jigbg1ig9eg9130r.apps.googleusercontent.com';
     var GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar';   // 전용 캘린더 생성·관리까지
     var gcalToken = null;        // 로그인 후 받은 접근 토큰
+    var gcalAllCalNames = [];    // 진단용: 마지막으로 조회한 내 캘린더 이름 목록
     var gcalTokenAt = 0;         // 토큰 받은 시각 (구글 토큰은 약 1시간 뒤 만료 → 50분 지나면 자동 재로그인)
     var gcalTokenClient = null;  // 구글 로그인 클라이언트
     // 응답을 JSON으로 — 단, 로그인 만료(401)는 '빈 목록'으로 오인하지 않고 정확히 알림
@@ -3645,19 +3646,26 @@
     // 「오늘의 우리」 캘린더 준비 — 원칙: 캘린더는 '재사용', 내용물만 싹 비움
     // (구글은 캘린더 생성/삭제를 반복하면 생성을 일시 차단하므로, 지웠다 만들지 않고 비워서 재사용)
     function prepareOuriCalendar(onWipe) {
+      var norm = function (t) { return String(t || '').replace(/\s+/g, ''); };   // 띄어쓰기 차이 무시
       function listMine() {
-        var norm = function (t) { return String(t || '').replace(/\s+/g, ''); };   // 띄어쓰기 차이 무시
         return gcalJson('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true')
-          .then(function (d) { return (d.items || []).filter(function (c) { return norm(c.summary) === norm(GCAL_CAL_NAME); }); });
+          .then(function (d) {
+            gcalAllCalNames = (d.items || []).map(function (c) { return c.summary; });   // 진단용: 실제 보이는 캘린더 이름들
+            return (d.items || []).filter(function (c) { return norm(c.summary) === norm(GCAL_CAL_NAME); }).map(function (c) { return { id: c.id }; });
+          });
       }
       function createNew() {
         return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars', {
           method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, timeZone: 'Asia/Seoul' })
         }).then(function (r) {
           if (r.status === 401) { gcalToken = null; throw new Error('구글 로그인이 만료됐어요. 🔄 구글 동기화를 다시 눌러 로그인해주세요.'); }
-          if (!r.ok) throw new Error('구글이 새 캘린더 생성을 잠시 제한하고 있어요 (여러 번 만들면 몇 분~몇 시간 차단돼요). 잠시 후 다시 시도하거나, 급하면 구글 캘린더에서 「' + GCAL_CAL_NAME + '」 이름의 캘린더를 직접 하나 만들어두세요 — 동기화가 그걸 그대로 재사용해요.');
-          return r.json();
-        }).then(function (c) { return c.id; });
+          if (r.ok) return r.json().then(function (c) { return c.id; });
+          // 생성 실패(대개 429 생성제한): 사용자가 직접 만든 캘린더가 이미 있는지 '/users/me/calendarList'로 마지막 확인
+          return listMine().then(function (again) {
+            if (again.length) return again[0].id;   // 있으면 그걸 재사용 → 성공
+            throw new Error('구글이 새 캘린더 생성을 잠시 제한하고 있어요. 방법: 구글 캘린더(웹/앱)에서 왼쪽 「다른 캘린더 +」→ 「새 캘린더 만들기」로 이름을 정확히 「' + GCAL_CAL_NAME + '」로 만들고 저장한 뒤, 1~2분 기다렸다가 다시 🔄 를 눌러주세요.');
+          });
+        });
       }
       return listMine().then(function (mine) {
         if (!mine.length) return createNew();   // 처음 한 번만 생성
@@ -3749,7 +3757,8 @@
           var ov = document.getElementById('sync-ov');
           if (ov) ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
             '<b style="font-size:16px;color:var(--warn,#C0392B)">동기화 중 문제가 생겼어요</b>' +
-            '<p style="font-size:13px;color:var(--muted);margin:10px 0 14px">' + ((err && err.message) ? err.message : '다시 🔄 구글 동기화를 눌러 로그인부터 해보세요.') + '</p>' +
+            '<p style="font-size:13px;color:var(--muted);margin:10px 0 10px">' + ((err && err.message) ? err.message : '다시 🔄 구글 동기화를 눌러 로그인부터 해보세요.') + '</p>' +
+            (gcalAllCalNames.length ? '<p style="font-size:11px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px;margin:0 0 12px;text-align:left">현재 인식된 내 캘린더: ' + gcalAllCalNames.map(function(n){return '「'+n+'」';}).join(', ') + '</p>' : '') +
             '<button onclick="document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:12px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">닫기</button></div>';
         });
     }
