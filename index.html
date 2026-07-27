@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v127·패치</div>
+      <div class="app-ver">v128·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v127</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v128</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -560,7 +560,7 @@
           <button class="person"        data-person="child" onclick="pickPerson(this)">딸</button>
         </div>
         <div class="clock-card" style="position:relative"><div class="live-clock" id="live-clock"></div><div id="daily-clock"></div><div class="legend" id="daily-legend"></div></div>
-        <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" id="edit-toggle-btn" onclick="toggleDailyEdit()" style="margin-left:6px">✏️ 수정</button><button class="bulk-btn" id="sel-toggle-btn" onclick="toggleSelectMode()" style="margin-left:auto">☑️ 선택</button><button class="bulk-btn" style="margin-left:6px" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" style="margin-left:6px" onclick="openBulk()">일괄 적용</button><button class="bulk-btn" style="margin-left:6px" onclick="syncToGoogle()" title="구글 로그인 한 번으로 모든 일정을 구글 캘린더에 자동 등록">🔄 구글 동기화</button></div>
+        <div class="view-toggle"><button id="vt-list" class="on" onclick="setDailyView('list')">목록</button><button id="vt-grid" onclick="setDailyView('grid')">시간표</button><button class="bulk-btn" id="edit-toggle-btn" onclick="toggleDailyEdit()" style="margin-left:6px">✏️ 수정</button><button class="bulk-btn" id="sel-toggle-btn" onclick="toggleSelectMode()" style="margin-left:auto">☑️ 선택</button><button class="bulk-btn" style="margin-left:6px" onclick="openXls()">📄 엑셀</button><button class="bulk-btn" style="margin-left:6px" onclick="openBulk()">일괄 적용</button><button class="bulk-btn" style="margin-left:6px" onclick="syncToGoogle()" title="구글 로그인 한 번으로 모든 일정을 구글 캘린더에 자동 등록">🔄 구글 동기화</button><button class="bulk-btn" style="margin-left:6px" onclick="diagnoseGoogle()" title="지금 계정의 캘린더 목록 확인">🔍</button></div>
         <div class="list" id="daily-list"></div>
         <div id="daily-grid" style="display:none"></div>
         <div id="daily-edit" style="display:none"></div>
@@ -3565,6 +3565,36 @@
       return null;
     }
 
+    // 🔍 진단: 지금 로그인된 계정에서 구글이 실제로 보여주는 '내 캘린더 목록'을 그대로 표시
+    function diagnoseGoogle() {
+      if (!window.google || !google.accounts || !google.accounts.oauth2) { showToast('구글 로그인 준비 중이에요.'); return; }
+      function show(list, raw) {
+        var ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:22px';
+        ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+        var rows = (list || []).map(function (c) {
+          var mark = (String(c.summary || '').replace(/\s+/g, '') === String(GCAL_CAL_NAME).replace(/\s+/g, '')) ? ' ✅(이게 동기화 대상)' : '';
+          return '<div style="padding:6px 0;border-bottom:1px solid var(--line)">「' + (c.summary || '(이름없음)') + '」<span style="color:var(--muted);font-size:11px">' + (c.primary ? ' · 기본' : '') + (c.accessRole ? ' · ' + c.accessRole : '') + mark + '</span></div>';
+        }).join('');
+        ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:420px;width:100%;padding:22px 20px;max-height:80vh;overflow:auto">' +
+          '<b style="font-size:16px;color:var(--accent)">🔍 지금 계정의 캘린더 목록</b>' +
+          '<p style="font-size:12px;color:var(--muted);margin:6px 0 12px">동기화가 찾는 이름: 「' + GCAL_CAL_NAME + '」</p>' +
+          '<div style="font-size:14px">' + (rows || '<span style="color:var(--warn,#C0392B)">캘린더가 하나도 안 보여요. (로그인 계정을 확인하세요)</span>') + '</div>' +
+          '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;margin-top:14px;padding:12px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">닫기</button>' +
+        '</div>';
+        document.body.appendChild(ov);
+      }
+      var run = function () {
+        gcalJson('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true')
+          .then(function (d) { show(d.items || [], d); })
+          .catch(function (e) { showToast('조회 실패: ' + (e.message || '')); });
+      };
+      if (gcalToken && (Date.now() - gcalTokenAt) < 50 * 60 * 1000) run();
+      else {
+        if (!gcalTokenClient) gcalTokenClient = google.accounts.oauth2.initTokenClient({ client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE, callback: function (resp) { if (resp && resp.access_token) { gcalToken = resp.access_token; gcalTokenAt = Date.now(); run(); } } });
+        gcalTokenClient.requestAccessToken({ prompt: 'consent' });
+      }
+    }
     // 버튼: 원클릭 동기화 시작
     function syncToGoogle() {
       if (!window.google || !google.accounts || !google.accounts.oauth2) {
