@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v133·패치</div>
+      <div class="app-ver">v134·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v133</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v134</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -619,7 +619,7 @@
         <div class="form-msg" id="form-msg"></div>
         <div class="edit-note" id="edit-note" style="display:none"></div>
         <div class="field">
-          <label>누구</label>
+          <label>누구 <span id="who-multi-hint" style="display:none;font-size:11px;color:var(--muted);font-weight:400">— 여러 명 함께 선택 가능 (가족 공통 일정)</span></label>
           <div class="who-pick" id="who-pick">
             <button class="person" data-person="dad"   onclick="pickFormWho(this)">아빠</button>
             <button class="person" data-person="mom"   onclick="pickFormWho(this)">엄마</button>
@@ -2223,7 +2223,7 @@
       document.getElementById('edit-note').style.display = 'none';
       document.getElementById('scope-field').style.display = '';
       document.getElementById('form-msg').textContent = '';
-      setFormWho('dad');
+      setWhoMulti(false, ['dad']);
       document.getElementById('f-title').value = m.title;
       document.getElementById('f-date').value = todayStr;
       var nowD = new Date();
@@ -2261,11 +2261,40 @@
     var formDays = [];         // '요일 반복'으로 고른 요일(0=일~6=토)
     var miniState = { y: 0, m: 0 };
 
+    var formWhoMulti = ['dad'];   // 새 일정 추가 시 선택된 담당자들 (여러 명 가능). 수정 모드에선 항상 1명.
+    var formWhoMultiEnabled = false;   // true면 여러 명 토글 선택 가능 (새 일정 추가에서만)
     function pickFormWho(btn) {
-      document.querySelectorAll('#who-pick .person').forEach(function (p) { p.classList.remove('active'); p.style.background = ''; });
-      btn.classList.add('active'); formWho = btn.dataset.person; btn.style.background = people[formWho].color;
+      var who = btn.dataset.person;
+      if (formWhoMultiEnabled) {
+        // 다중 모드: 토글. 단, 최소 1명은 남김
+        var i = formWhoMulti.indexOf(who);
+        if (i >= 0) { if (formWhoMulti.length > 1) formWhoMulti.splice(i, 1); }
+        else formWhoMulti.push(who);
+      } else {
+        formWhoMulti = [who];
+      }
+      formWho = formWhoMulti[0];   // 대표값(색·검증 등 기존 로직 호환)
+      renderWhoPick();
     }
-    function setFormWho(who) { pickFormWho(document.querySelector('#who-pick .person[data-person="' + who + '"]')); }
+    // 선택 상태를 버튼에 반영
+    function renderWhoPick() {
+      document.querySelectorAll('#who-pick .person').forEach(function (p) {
+        var on = formWhoMulti.indexOf(p.dataset.person) >= 0;
+        p.classList.toggle('active', on);
+        p.style.background = on ? people[p.dataset.person].color : '';
+        p.style.color = on ? '#fff' : '';
+      });
+    }
+    function setFormWho(who) { formWhoMulti = [who]; formWho = who; renderWhoPick(); }
+    // 여러 명 동시 선택 켜기/끄기 (새 일정 추가=켜기, 수정=끄기)
+    function setWhoMulti(enabled, initial) {
+      formWhoMultiEnabled = enabled;
+      formWhoMulti = initial ? initial.slice() : [formWho || 'dad'];
+      formWho = formWhoMulti[0];
+      var hint = document.getElementById('who-multi-hint');
+      if (hint) hint.style.display = enabled ? '' : 'none';
+      renderWhoPick();
+    }
 
     // 종류 버튼 만들기 (자동 + 각 종류 + 삭제(×) + 새 종류)
     var PALETTE = ['#B4B2A9', '#AEBEE0', '#6FA85C', '#E0A24E', '#E8896B', '#4FB0A0', '#B49BD8', '#C7C2B6', '#3B7DBF', '#D96BA0', '#7BB661', '#66B2C2'];
@@ -2522,7 +2551,7 @@
       document.getElementById('edit-note').style.display = 'none';
       document.getElementById('scope-field').style.display = '';
       document.getElementById('form-msg').textContent = '';
-      setFormWho('dad');
+      setWhoMulti(true, ['dad']);   // 새 일정: 여러 명 동시 선택 가능
       document.getElementById('f-title').value = '';
       var nowD = new Date();   // 시작=지금 시각의 정시, 끝=한 시간 뒤 (물론 바로 고칠 수 있어요)
       document.getElementById('f-start').value = ('0' + nowD.getHours()).slice(-2) + ':00';
@@ -2549,7 +2578,7 @@
       document.getElementById('form-msg').textContent = '';
       document.getElementById('edit-note').style.display = 'none';
       document.getElementById('scope-field').style.display = '';   // 추가와 똑같은 6개 범위
-      setFormWho(row.who);
+      setWhoMulti(false, [row.who]);   // 수정은 대상이 하나뿐 → 단일 선택
       document.getElementById('f-title').value = row.title;
       document.getElementById('f-start').value = row.start || '09:00';
       document.getElementById('f-end').value = row.end || '10:00';
@@ -3318,18 +3347,28 @@
 
       function commitSave() {
         var wasEditing = !!editingItem;
+        // 새 일정 + 여러 명 선택 → 선택된 각 사람에게 하나씩 생성 (가족 공통 일정)
+        var whoList = (!editingItem && formWhoMulti && formWhoMulti.length > 1) ? formWhoMulti : [formWho];
         if (editingItem) { if (keepRest) splitEditKeepRest(editingItem, vals, sfN); else applyEditScoped(editingItem, vals); }
-        else if (formScope === 'base') schedule.push({ id: nextId++, who: formWho, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo, routine: routine });
-        else exceptions.push(newEx(vals, sfN));
-        logChange(editingItem ? '수정' : '추가', people[formWho].name + ' ' + title + (todo ? ' (메모)' : ''), scopeLabel, formEditor);
+        else {
+          whoList.forEach(function (w) {
+            if (formScope === 'base') schedule.push({ id: nextId++, who: w, start: start, end: end, title: title, pin: pin, cat: formCat, editor: formEditor, todo: todo, routine: routine });
+            else { var v2 = {}; for (var k in vals) v2[k] = vals[k]; v2.who = w; exceptions.push(newEx(v2, sfN)); }
+          });
+        }
+        var whoNames = whoList.map(function (w) { return people[w].name; }).join('·');
+        logChange(editingItem ? '수정' : '추가', whoNames + ' ' + title + (todo ? ' (메모)' : ''), scopeLabel, formEditor);
         if (editingMemoId != null) {   // 📝 메모에서 열어 저장한 경우
           if (!todo) memos = memos.filter(function (x) { return x.id !== editingMemoId; });   // 메모 끄고 일정화 → 메모함에서 이동(제거)
           else { var mm = memos.filter(function (x) { return x.id === editingMemoId; })[0]; if (mm) mm.title = title; }   // 그대로 메모면 제목만 갱신
           editingMemoId = null;
         }
         saveAll(); refreshAll(); closeModal();
-        showToast('✅ ' + title + (wasEditing ? ' 수정됨' : ' 추가됨'));
+        showToast('✅ ' + title + (wasEditing ? ' 수정됨' : (whoList.length > 1 ? ' ' + whoList.length + '명 추가됨' : ' 추가됨')));
       }
+
+      // 여러 명 동시 추가(가족 공통)면 개별 겹침 조정은 건너뛰고 각자에게 그대로 추가
+      if (!editingItem && formWhoMulti && formWhoMulti.length > 1) { commitSave(); return; }
 
       if (conflicts.length) {
         if (formScope === 'day') {   // 이 날짜만: 새 일정 시간을 지키고, 겹친 기존 일정을 앞뒤로 잘라 자연스럽게 끼움
