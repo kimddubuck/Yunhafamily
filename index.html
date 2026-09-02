@@ -375,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v134·패치</div>
+      <div class="app-ver">v135·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -552,7 +552,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v134</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v135</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -3564,6 +3564,7 @@
         if (!startFrom) return;   // 400일 내내 가려짐 → 화면에 안 보이므로 안 보냄
         var e = gcalEvents(r.who, r.title, r.start, r.end, { scope: 'base' }, startFrom)[0];
         addExdates(e, exDays, r.start);
+        e.__pin = !!r.pin;   // 월간 달력에 뜨는 일정인지 표시 (아래에서 캘린더 갈래를 나눌 때 씀)
         evs.push(e);
       });
       // 2) 예외/반복 일정: 실제 첫 적용일부터 + '이 날짜만 삭제'한 날은 EXDATE로 제외
@@ -3576,7 +3577,7 @@
         if (list.length === 1 && list[0].recurrence) {
           addExdates(list[0], (E.excl || []).filter(function (d) { return d > firstDay; }), E.start);
         }
-        list.forEach(function (e) { evs.push(e); });
+        list.forEach(function (e) { e.__pin = !!E.pin; evs.push(e); });
       });
       // ★ 최종 안전장치: 똑같은 일정(제목+시간+반복)이 어떤 이유로든 2개 모였으면 1개만 남김
       var seen = {}, out = [];
@@ -3584,7 +3585,15 @@
         var key = e.summary + '|' + e.start.dateTime + '|' + e.end.dateTime + '|' + JSON.stringify(e.recurrence || null);
         if (!seen[key]) { seen[key] = true; out.push(e); }
       });
-      return out;
+      // ★ 두 갈래로 나누기 — 월간 달력에 뜨는 것(📌 월간 표시)은 「주요일정」 캘린더로, 나머지는 「오늘의 우리」로
+      //    (구글에서 색이 달라지고, 체크를 꺼서 따로따로 볼 수 있게 됨)
+      var routine = [], main = [];
+      out.forEach(function (e) {
+        var isPin = !!e.__pin;
+        delete e.__pin;                      // 구글에 보낼 땐 앱 전용 표식은 지움
+        (isPin ? main : routine).push(e);
+      });
+      return { routine: routine, main: main };
     }
     // 예외 E가 fromDate(포함) 이후 처음으로 실제 적용되는 날짜 (제외일·범위 모두 반영). 최대 400일 탐색.
     function firstAppliedDayFrom(E, fromDate) {
@@ -3625,7 +3634,10 @@
             var items = (res.data && res.data.items) || [];
             var names = items.map(function (c) { return '「' + c.summary + '」'; }).join(', ') || '(없음)';
             var errmsg = res.data && res.data.error ? (res.data.error.message || JSON.stringify(res.data.error)) : '';
-            var savedLine = saved ? ('저장된 전용 캘린더 ID: <br><span style="font-size:10px;color:var(--muted)">' + saved + '</span>') : '저장된 전용 캘린더: 아직 없음';
+            var saved2 = getSavedCalId(OURI_CAL_KEY2);
+            var savedLine =
+              (saved ? ('🔁 「' + GCAL_CAL_NAME + '」 ID: <br><span style="font-size:10px;color:var(--muted)">' + saved + '</span>') : '🔁 「' + GCAL_CAL_NAME + '」: 아직 없음') + '<br>' +
+              (saved2 ? ('⭐ 「' + GCAL_CAL_NAME2 + '」 ID: <br><span style="font-size:10px;color:var(--muted)">' + saved2 + '</span>') : '⭐ 「' + GCAL_CAL_NAME2 + '」: 아직 없음');
             var html = savedLine +
               '<hr style="border:none;border-top:1px solid var(--line);margin:10px 0">' +
               '<b>목록 조회 결과 (HTTP ' + res.status + ')</b><br>' +
@@ -3666,7 +3678,9 @@
 
     // 실제로 구글 캘린더에 일정들을 써넣기
     // 실제 동기화: ① 전용 캘린더 확보 → ② 오늘 이후(미래) 일정만 삭제 → ③ 앱 일정을 다시 채움 (과거는 보존)
-    var GCAL_CAL_NAME = '오늘의 우리';
+    var GCAL_CAL_NAME = '오늘의 우리';              // 🔁 루틴·평소 일정이 들어가는 캘린더
+    var GCAL_CAL_NAME2 = '오늘의 우리_주요일정';     // ⭐ 월간 달력에 뜨는 일정만 따로 담는 캘린더
+    var GCAL_CAL_COLOR2 = '9';                      // 주요일정 캘린더 색 (구글 색번호 9 = 진한 파랑 '블루베리')
     function gcalFetch(url, opts) {
       opts = opts || {}; opts.headers = opts.headers || {};
       opts.headers['Authorization'] = 'Bearer ' + gcalToken;
@@ -3725,29 +3739,43 @@
     // (구글은 캘린더 생성/삭제를 반복하면 생성을 일시 차단하므로, 지웠다 만들지 않고 비워서 재사용)
     // 「오늘의 우리」 캘린더 확보 — 목록 조회 없이 'ID를 기억'하는 방식 (calendar 권한만으로 동작)
     // 저장된 ID가 있으면 그대로 사용, 없거나 삭제됐으면 새로 만들어 ID를 localStorage에 저장
-    var OURI_CAL_KEY = 'ouriCalendarId';
-    function getSavedCalId() { try { return localStorage.getItem(OURI_CAL_KEY) || null; } catch (e) { return null; } }
-    function saveCalId(id) { try { localStorage.setItem(OURI_CAL_KEY, id); } catch (e) {} }
-    function createOuriCalendar() {
+    var OURI_CAL_KEY = 'ouriCalendarId';     // 「오늘의 우리」 캘린더 ID를 넣어두는 서랍 이름
+    var OURI_CAL_KEY2 = 'ouriCalendarId2';   // 「오늘의 우리_주요일정」 캘린더 ID 서랍
+    // key를 안 주면 예전처럼 「오늘의 우리」 것을 다룸 (기존 코드 그대로 동작)
+    function getSavedCalId(key) { try { return localStorage.getItem(key || OURI_CAL_KEY) || null; } catch (e) { return null; } }
+    function saveCalId(id, key) { try { localStorage.setItem(key || OURI_CAL_KEY, id); } catch (e) {} }
+    // 캘린더 표시색 지정 — 실패해도 동기화엔 지장 없게 조용히 넘어감
+    function setCalColor(calId, colorId) {
+      if (!colorId) return Promise.resolve();
+      return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList/' + encodeURIComponent(calId), {
+        method: 'PATCH', body: JSON.stringify({ colorId: String(colorId) })
+      }).then(function () { }).catch(function () { });
+    }
+    function createOuriCalendar(name, key, colorId) {
+      name = name || GCAL_CAL_NAME;
       return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars', {
-        method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, timeZone: 'Asia/Seoul' })
+        method: 'POST', body: JSON.stringify({ summary: name, timeZone: 'Asia/Seoul' })
       }).then(function (r) {
         if (r.status === 401) { gcalToken = null; throw new Error('구글 로그인이 만료됐어요. 🔄 를 다시 눌러 로그인해주세요.'); }
-        if (r.ok) return r.json().then(function (c) { saveCalId(c.id); return c.id; });
+        if (r.ok) return r.json().then(function (c) {
+          saveCalId(c.id, key);
+          return setCalColor(c.id, colorId).then(function () { return c.id; });
+        });
         // 생성 실패(대개 생성 제한) → 목록에서 같은 이름 캘린더를 찾아 재사용 (직접 만들어둔 것 포함)
-        return findExistingByName().then(function (foundId) {
-          if (foundId) { saveCalId(foundId); return foundId; }
-          throw new Error('구글이 새 캘린더 생성을 잠시 막고 있어요 (몇 시간 뒤 자동 해제). 지금 바로 쓰려면: 구글 캘린더 앱/웹에서 「' + GCAL_CAL_NAME + '」 이름의 캘린더를 하나 만들고 1~2분 뒤 다시 🔄 를 눌러주세요.');
+        return findExistingByName(name).then(function (foundId) {
+          if (foundId) { saveCalId(foundId, key); return foundId; }
+          throw new Error('구글이 새 캘린더 생성을 잠시 막고 있어요 (몇 시간 뒤 자동 해제). 지금 바로 쓰려면: 구글 캘린더 앱/웹에서 「' + name + '」 이름의 캘린더를 하나 만들고 1~2분 뒤 다시 🔄 를 눌러주세요.');
         });
       });
     }
     // 이름으로 기존 캘린더 찾기 (목록 조회 — 권한이 있을 때만 동작, 없으면 빈 결과)
-    function findExistingByName() {
+    function findExistingByName(name) {
+      var target = name || GCAL_CAL_NAME;
       var norm = function (t) { return String(t || '').replace(/\s+/g, ''); };
       return gcalFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true')
         .then(function (r) { return r.ok ? r.json() : { items: [] }; })
         .then(function (d) {
-          var hit = (d.items || []).filter(function (c) { return norm(c.summary) === norm(GCAL_CAL_NAME); })[0];
+          var hit = (d.items || []).filter(function (c) { return norm(c.summary) === norm(target); })[0];
           return hit ? hit.id : null;
         })
         .catch(function () { return null; });
@@ -3761,20 +3789,28 @@
         return true;   // 그 외 오류는 일단 있다고 보고 진행 (아래 비우기에서 재확인)
       });
     }
-    function prepareOuriCalendar(onWipe) {
-      var saved = getSavedCalId();
+    function prepareOuriCalendar(name, key, colorId, onWipe) {
+      name = name || GCAL_CAL_NAME;
+      // 이름으로 찾아낸 기존 캘린더를 쓸 때: ID 기억 → 색 맞추기 → 내용물 비우기
+      function adopt(foundId) {
+        saveCalId(foundId, key);
+        return setCalColor(foundId, colorId)
+          .then(function () { return wipeCalendarEvents(foundId, onWipe); })
+          .then(function () { return foundId; });
+      }
+      var saved = getSavedCalId(key);
       if (!saved) {
         // 저장된 게 없으면 → ① 이름으로 기존 캘린더 탐색 (있으면 생성 안 함, 제한 회피) ② 없으면 생성
-        return findExistingByName().then(function (foundId) {
-          if (foundId) { saveCalId(foundId); return wipeCalendarEvents(foundId, onWipe).then(function () { return foundId; }); }
-          return createOuriCalendar();
+        return findExistingByName(name).then(function (foundId) {
+          if (foundId) return adopt(foundId);
+          return createOuriCalendar(name, key, colorId);
         });
       }
       return calendarExists(saved).then(function (ok) {
         if (!ok) {   // 저장된 게 삭제됨 → 다시 탐색 후 생성
-          return findExistingByName().then(function (foundId) {
-            if (foundId) { saveCalId(foundId); return wipeCalendarEvents(foundId, onWipe).then(function () { return foundId; }); }
-            return createOuriCalendar();
+          return findExistingByName(name).then(function (foundId) {
+            if (foundId) return adopt(foundId);
+            return createOuriCalendar(name, key, colorId);
           });
         }
         return wipeCalendarEvents(saved, onWipe).then(function () { return saved; });
@@ -3810,44 +3846,56 @@
     var lastPrimaryCleanup = null;   // 마지막 잔재 청소 결과 (완료창 표시용)
 
     function pushEventsToGoogle() {
-      var events = collectGcalEvents();
-      if (!events.length) { showToast('보낼 일정이 없어요.'); return; }
-      openSyncProgress(events.length);
-      var calId = null;
+      // 앱 일정을 두 바구니로 나눠 담음 — routine: 평소 루틴 / main: 월간 달력에 뜨는 주요일정
+      var split = collectGcalEvents();
+      var routineEvs = split.routine, mainEvs = split.main;
+      var total = routineEvs.length + mainEvs.length;
+      if (!total) { showToast('보낼 일정이 없어요.'); return; }
+      openSyncProgress(total);
+      var okCount = 0, failCount = 0, doneSoFar = 0;
+      // 캘린더 한 개를 '비우고 → 다시 채우는' 한 판. 두 캘린더에 똑같이 씀
+      function syncOne(label, name, key, colorId, list) {
+        var calId = null;
+        updateSyncStage(label + ' 캘린더 준비 중…');
+        return prepareOuriCalendar(name, key, colorId, function (a, b) {
+          var m = document.getElementById('sync-msg');
+          if (m && b > 0) m.textContent = label + ' 비우는 중… (' + a + ' / ' + b + ')';
+        })
+          .then(function (id) {
+            calId = id;
+            return new Promise(function (res) { setTimeout(res, 600); });   // 구글 내부 반영 잠깐 대기
+          })
+          .then(function () {
+            if (!list.length) return;   // 보낼 게 없으면 '비우기'만 하고 끝 (묵은 일정은 이미 지워짐)
+            updateSyncStage(label + ' 등록 중…');
+            return runInBatches(list, 5, function (ev) {
+              return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events', {
+                method: 'POST', body: JSON.stringify(ev)
+              }).then(function (r) {
+                if (r.ok) okCount++; else { failCount++; if (r.status === 401) gcalToken = null; }
+              });
+            }, function (c) { updateSyncProgress(doneSoFar + c, total); });
+          })
+          .then(function () { doneSoFar += list.length; });
+      }
       // ① 예전 버전이 기본 캘린더에 남긴 잔재 청소 (유령·중복의 근원)
       updateSyncStage('옛 동기화 잔재 청소 중…');
       lastPrimaryCleanup = null;
-      cleanupPrimaryLeftovers(function (n, total) {
+      cleanupPrimaryLeftovers(function (n, tot) {
         var m = document.getElementById('sync-msg');
-        if (m && total > 0) m.textContent = '옛 잔재 청소 중… (' + n + ' / ' + total + ')';
+        if (m && tot > 0) m.textContent = '옛 잔재 청소 중… (' + n + ' / ' + tot + ')';
       })
         .then(function (info) {
           lastPrimaryCleanup = info;   // {found, failed}
-          // ② 「오늘의 우리」 캘린더 준비: 전부 삭제→새 캘린더 (막히면 비워서 재사용) = 어떤 경우에도 깨끗한 시작
-          updateSyncStage('전용 캘린더 준비 중…');
-          return prepareOuriCalendar(function (n, total) {
-            var m = document.getElementById('sync-msg');
-            if (m && total > 0) m.textContent = '캘린더 비우는 중… (' + n + ' / ' + total + ')';
-          });
-        })
-        .then(function (id) {
-          calId = id;
-          // ③ 구글 내부 반영 잠깐 대기
-          return new Promise(function (res) { setTimeout(res, 600); });
+          // ② 「오늘의 우리」 = 루틴·평소 일정 (기존 캘린더 그대로, 색 안 건드림)
+          return syncOne('🔁 루틴', GCAL_CAL_NAME, OURI_CAL_KEY, null, routineEvs);
         })
         .then(function () {
-          // ④ 등록: 이제부터 넣는 건 삭제 대상 목록에 애초에 없었음 → 손실 불가능
-          updateSyncStage('일정 등록 중…');
-          var okCount = 0, failCount = 0;
-          return runInBatches(events, 5, function (ev) {
-            return gcalFetchRetry('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events', {
-              method: 'POST', body: JSON.stringify(ev)
-            }).then(function (r) {
-              if (r.ok) okCount++; else { failCount++; if (r.status === 401) gcalToken = null; }
-            });
-          }, function (n) { updateSyncProgress(n, events.length); }).then(function () {
-            finishSync(okCount, failCount);
-          });
+          // ③ 「오늘의 우리_주요일정」 = 월간 달력에 뜨는 것만 (다른 색)
+          return syncOne('⭐ 주요일정', GCAL_CAL_NAME2, OURI_CAL_KEY2, GCAL_CAL_COLOR2, mainEvs);
+        })
+        .then(function () {
+          finishSync(okCount, failCount, routineEvs.length, mainEvs.length);
         })
         .catch(function (err) {
           gcalToken = null;
@@ -3878,16 +3926,19 @@
       if (msg) msg.textContent = '보내는 중… (' + cur + ' / ' + total + ')';
       if (bar) bar.style.width = Math.round(cur / total * 100) + '%';
     }
-    function finishSync(done, failed) {
+    function finishSync(done, failed, nRoutine, nMain) {
       var ov = document.getElementById('sync-ov');
       if (ov) ov.innerHTML = '<div style="background:var(--card);border-radius:18px;max-width:360px;width:100%;padding:24px 20px;text-align:center">' +
         '<b style="font-size:17px;color:var(--accent)">✅ 동기화 완료</b>' +
-        '<p style="font-size:14px;color:var(--ink);margin:12px 0 4px"><b>「오늘의 우리」 캘린더</b>를 새로 비우고 <b>' + done + '건</b>을 채웠어요.' + (failed ? '<br><span style="color:var(--warn,#C0392B);font-size:12px">⚠️ ' + failed + '건 등록 실패 — 다시 한 번 동기화해주세요</span>' : '') + '</p>' +
+        '<p style="font-size:14px;color:var(--ink);margin:12px 0 4px">구글 캘린더 <b>2개</b>를 새로 비우고 채웠어요.' + (failed ? '<br><span style="color:var(--warn,#C0392B);font-size:12px">⚠️ ' + failed + '건 등록 실패 — 다시 한 번 동기화해주세요</span>' : '') + '</p>' +
+        '<div style="font-size:13px;color:var(--ink);background:var(--bg);border-radius:10px;padding:10px 12px;margin:0 0 8px;text-align:left;line-height:1.8">' +
+        '🔁 <b>「' + GCAL_CAL_NAME + '」</b> — ' + nRoutine + '건 (평소 루틴)<br>' +
+        '⭐ <b>「' + GCAL_CAL_NAME2 + '」</b> — ' + nMain + '건 (월간 달력에 뜨는 것)</div>' +
         ((lastPrimaryCleanup && lastPrimaryCleanup.found) ? '<p style="font-size:12px;color:var(--muted);margin:0 0 4px">기본 캘린더의 옛 잔재 ' + lastPrimaryCleanup.found + '건도 정리했어요.' + (lastPrimaryCleanup.failed ? ' (' + lastPrimaryCleanup.failed + '건 실패)' : '') + '</p>' : '') +
-        '<p style="font-size:12px;color:var(--muted);margin-bottom:14px">앱 화면과 똑같은 상태예요. 이제 “헤이 구글, 오늘 일정 뭐야?” 해보세요.</p>' +
+        '<p style="font-size:12px;color:var(--muted);margin-bottom:14px">주요일정만 보고 싶으면 구글 캘린더에서 「' + GCAL_CAL_NAME + '」 체크를 꺼주세요.</p>' +
         '<button onclick="document.getElementById(\'sync-ov\').remove()" style="width:100%;padding:13px;border:none;background:var(--accent);color:#fff;border-radius:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">확인</button>' +
         '</div>';
-      logChange('동기화', '구글 캘린더 ' + done + '건 (미래 갱신)', '전체', deviceWho);
+      logChange('동기화', '구글 캘린더 ' + done + '건 (루틴 ' + nRoutine + ' / 주요 ' + nMain + ')', '전체', deviceWho);
     }
 
     /* ============================================================
