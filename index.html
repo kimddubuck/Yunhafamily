@@ -15,10 +15,6 @@
 -->
 <html lang="ko">
 <head>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#E88C19">
-<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADAAgMAAAAvsoSUAAAADFBMVEX////yv3/ojBrojBmwcwCAAAACAklEQVR42u2ZP07cQBSHv7ewNiRFtshKiIar+AgILZEQFCloUi0FB/ARXFLS0ABSuMHuEUhDRZkgUGgioWizsB6K2T9j1uP1SFAQvddYsueb+Xneb96MbDGERQMFFFBAAQUUUEABBRRQQIF6sVxy7wzp+AkzHwlLxhuvIsnGaPZI8veShx8iIiIr/4U1xl2dwlUK65nPGpf2RuxYIwHiAGsM+8Bw0Ts4In8DmAPf4/Y2cOaq3QPgKKuwdw6fpu/wE2gBXbfFC2AEGxPgBOAQkG4toAMgAwB2vbPkfCG4B2hGAJx7Z+nJqgZIANqSAqxUAZPYBNhnH2adlOZhc3xtAVHKejVwby/5lz0+Azsiq5nTyXweLqE3dtADRAbiUQI977T2YWK5Ac2egdj8Qvx5SJAJMNr+bgzExtxt+QFoFEw95+4XicuhGbREH0PX9NMsqX9ERAT+iYjYfJcA14Uc1RjhYgwsmUEtwKTFpC4EhkAaAtzWKGyFBseL01AATAprIaXyr+v8D6dus3apvTOskSt3UQo1yRq5EnAk3QBRYX+f7qKdshWXJ8CGM8KszcdSew/7wNfFdp2iD0DDBIywDKyGrIcIbNWqK8kWgABJZLbK1fdSq5YiR9IgKj1g5V5JzW+BJ4FGpifj9w74z2mI/k5QQAEFFFBAAQUUUEABBd4KeAY/UEf3BIEATgAAAABJRU5ErkJggg==">
-<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADAAgMAAAAvsoSUAAAADFBMVEX////yv3/ojBrojBmwcwCAAAACAklEQVR42u2ZP07cQBSHv7ewNiRFtshKiIar+AgILZEQFCloUi0FB/ARXFLS0ABSuMHuEUhDRZkgUGgioWizsB6K2T9j1uP1SFAQvddYsueb+Xneb96MbDGERQMFFFBAAQUUUEABBRRQQIF6sVxy7wzp+AkzHwlLxhuvIsnGaPZI8veShx8iIiIr/4U1xl2dwlUK65nPGpf2RuxYIwHiAGsM+8Bw0Ts4In8DmAPf4/Y2cOaq3QPgKKuwdw6fpu/wE2gBXbfFC2AEGxPgBOAQkG4toAMgAwB2vbPkfCG4B2hGAJx7Z+nJqgZIANqSAqxUAZPYBNhnH2adlOZhc3xtAVHKejVwby/5lz0+Azsiq5nTyXweLqE3dtADRAbiUQI977T2YWK5Ac2egdj8Qvx5SJAJMNr+bgzExtxt+QFoFEw95+4XicuhGbREH0PX9NMsqX9ERAT+iYjYfJcA14Uc1RjhYgwsmUEtwKTFpC4EhkAaAtzWKGyFBseL01AATAprIaXyr+v8D6dus3apvTOskSt3UQo1yRq5EnAk3QBRYX+f7qKdshWXJ8CGM8KszcdSew/7wNfFdp2iD0DDBIywDKyGrIcIbNWqK8kWgABJZLbK1fdSq5YiR9IgKj1g5V5JzW+BJ4FGpifj9w74z2mI/k5QQAEFFFBAAQUUUEABBd4KeAY/UEf3BIEATgAAAABJRU5ErkJggg==">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>오늘의 우리 — 육아 부부 루틴 & 플래너</title>
@@ -26,6 +22,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#FAF8F2">
+  <link rel="manifest" href='data:application/manifest+json,{"name":"오늘의 우리","short_name":"오늘의우리","start_url":"https://kimddubuck.github.io/Yunhafamily/","display":"standalone","background_color":"#FAF8F2","theme_color":"#2B7A78"}'>
   <style>
     /* 세븐세그먼트(디지털 전광판) 폰트 — 인터넷 연결 시 로드, 없으면 monospace로 대체 */
     @font-face {
@@ -378,7 +375,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v135·패치</div>
+      <div class="app-ver">v136·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -386,9 +383,21 @@
       <div class="sheet">
         <div class="sheet-title">최근 수정 내역</div>
         <div class="hist-list" id="hist-list"></div>
+        <button class="reset-pins-btn" onclick="downloadBackup()">📦 백업 내려받기 (전체 저장)</button>
+        <button class="reset-pins-btn" onclick="pickRestore()">📥 백업 복원 (파일에서 되돌리기)</button>
+        <input type="file" id="restore-file" accept=".json,application/json" style="display:none" onchange="onRestoreFile(this)">
         <button class="reset-pins-btn" onclick="askCleanup()">🧹 데이터 정리 (중복·지난 조각 청소)</button>
         <button class="reset-pins-btn" style="color:#C0392B;border-color:#E5C4BF" onclick="askResetAll()">🗑 전체 초기화 (모든 일정 삭제)</button>
         <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeHistory()">닫기</button></div>
+      </div>
+    </div>
+
+    <!-- 백업 복원 확인 -->
+    <div class="modal ow" id="restore-modal">
+      <div class="sheet">
+        <div class="sheet-title">📥 이 백업으로 되돌릴까요?</div>
+        <div class="ow-note" id="restore-text"></div>
+        <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeRestore()">취소</button><button class="btn btn-save" onclick="confirmRestore()">네, 복원</button></div>
       </div>
     </div>
 
@@ -555,7 +564,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v135</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v136</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -4107,6 +4116,71 @@
 
     /* ===== 앱 시작 ===== */
     // 예전 버그로 쌓인 일괄분 중복 청소: 같은 사람·같은 범위·같은 시간·같은 제목의 bulk 예외가 여러 개면 하나만 남김
+    /* ===== 📦 백업 내려받기 · 📥 복원 =====
+       앱이 가진 것을 통째로 파일 하나에 담는다.
+       (구글 동기화·.ics 는 '일정'만 나가지만, 이건 앱 상태 그대로라 되돌리기에 쓸 수 있음)
+       담기는 것: 기본 루틴 · 변경/반복 일정 · 가림 · 종류 · 메모 · 수정내역 */
+    function backupPayload() {
+      var lightLog = changeLog.map(function (h) { return { t: h.t, who: h.who, act: h.act, title: h.title, when: h.when }; });
+      var verEl = document.querySelector('.app-ver');
+      return {
+        app: '오늘의 우리', kind: 'backup',
+        ver: verEl ? verEl.textContent : '',
+        savedAt: new Date().toString(),
+        device: deviceWho || '',
+        data: { base: schedule, exceptions: exceptions, hides: hides, categories: categories, history: lightLog, memos: memos }
+      };
+    }
+    function downloadBackup() {
+      try {
+        var d = new Date(), z = function (v) { return (v < 10 ? '0' : '') + v; };
+        var name = '오늘의우리_백업_' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + '.json';
+        var blob = new Blob([JSON.stringify(backupPayload(), null, 2)], { type: 'application/json;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+        showToast('📦 백업 저장 — 기본 ' + schedule.length + ' + 변경·반복 ' + exceptions.length + '개');
+      } catch (e) { showToast('백업 실패: ' + (e.message || '')); }
+    }
+    var restorePending = null;
+    function pickRestore() { var el = document.getElementById('restore-file'); if (el) { el.value = ''; el.click(); } }
+    function onRestoreFile(input) {
+      var f = input.files && input.files[0];
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function (e) {
+        try {
+          var o = JSON.parse(e.target.result);
+          var d = (o && o.data) ? o.data : o;          // {data:{…}} 형식도, 날것도 받아줌
+          if (!d || !Array.isArray(d.base)) throw new Error('백업 파일이 아니에요');
+          restorePending = d;
+          document.getElementById('restore-text').innerHTML =
+            '지금 상태를 <b>이 백업으로 통째 덮어써요.</b><br>' +
+            '<span style="font-size:12px">저장 시각: ' + ((o && o.savedAt) ? o.savedAt : '알 수 없음') + '</span><br><br>' +
+            '기본 루틴 <b>' + (d.base || []).length + '개</b> · 변경·반복 <b>' + (d.exceptions || []).length + '개</b> · 메모 <b>' + (d.memos || []).length + '개</b>';
+          document.getElementById('restore-modal').classList.add('open');
+        } catch (err) { showToast('읽지 못했어요: ' + (err.message || '')); }
+      };
+      rd.readAsText(f);
+    }
+    function closeRestore() { document.getElementById('restore-modal').classList.remove('open'); restorePending = null; }
+    function confirmRestore() {
+      var d = restorePending;
+      if (!d) return;
+      closeRestore();
+      schedule = d.base || [];
+      exceptions = d.exceptions || [];
+      hides = d.hides || [];
+      if (d.categories && d.categories.length) { categories = d.categories; normalizeCats(); rebuildCatColors(); }
+      memos = d.memos || [];
+      assignIds();
+      logChange('복원', '백업에서 복원 (기본 ' + schedule.length + ' + 변경·반복 ' + exceptions.length + ')', '전체', deviceWho);
+      saveAll(); refreshAll();
+      showToast('✅ 백업을 복원했어요');
+    }
+
     /* ===== 🗑 전체 초기화 ===== */
     function askResetAll() {
       var n = schedule.length + exceptions.length;
