@@ -1,22 +1,27 @@
-# 매일 아침 7시(한국) 텔레그램으로 그날 주요 일정 보내기
-# 시간을 바꾸려면 아래 cron 의 숫자만 고치면 됨 (UTC 기준, 한국시간 -9시간)
-#   07:00 한국 = 22:00 UTC 전날  →  '0 22 * * *'
-#   08:00 한국 = 23:00 UTC 전날  →  '0 23 * * *'
-#   06:30 한국 = 21:30 UTC 전날  →  '30 21 * * *'
+# 오늘의 우리 — 텔레그램 알림봇
+#
+# 15분마다 깨어나서:
+#   1) 그동안 온 명령어(/오늘 /주간 /월간 /시간 …)를 처리하고 답장
+#   2) 정해진 시각이 지났는데 오늘 아직 안 보냈으면 → 브리핑 발송
+#
+# 보내는 시각은 텔레그램에서 "/시간 8:00" 으로 바꾸면 되고,
+# config/telegram.json 에 저장된다. (이 파일을 직접 고칠 필요 없음)
 name: 오늘의 주요 일정 알림
 
 on:
   schedule:
-    - cron: '0 22 * * *'
-  workflow_dispatch:          # 저장소 Actions 탭에서 손으로도 돌려볼 수 있음
-    inputs:
-      day_offset:
-        description: '며칠 뒤 것을 볼지 (0=오늘, 1=내일)'
-        required: false
-        default: '0'
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: telegram-bot          # 여러 개가 동시에 돌아 중복 발송되는 것 방지
+  cancel-in-progress: false
+
+permissions:
+  contents: write              # 설정(config/telegram.json) 저장용
 
 jobs:
-  send:
+  run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,9 +30,20 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 오늘 주요 일정 보내기
+      - name: 명령 처리 + 브리핑
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          DAY_OFFSET: ${{ github.event.inputs.day_offset || '0' }}
-        run: node scripts/daily-digest.js
+        run: node scripts/telegram-bot.js
+
+      - name: 바뀐 설정 저장
+        run: |
+          if [ -n "$(git status --porcelain config/)" ]; then
+            git config user.name  "오늘의우리 봇"
+            git config user.email "actions@github.com"
+            git add config/
+            git commit -m "설정 갱신 [skip ci]"
+            git push
+          else
+            echo "바뀐 설정 없음"
+          fi
