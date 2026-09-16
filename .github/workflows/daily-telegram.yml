@@ -1,0 +1,33 @@
+# 매일 아침 7시(한국) 텔레그램으로 그날 주요 일정 보내기
+# 시간을 바꾸려면 아래 cron 의 숫자만 고치면 됨 (UTC 기준, 한국시간 -9시간)
+#   07:00 한국 = 22:00 UTC 전날  →  '0 22 * * *'
+#   08:00 한국 = 23:00 UTC 전날  →  '0 23 * * *'
+#   06:30 한국 = 21:30 UTC 전날  →  '30 21 * * *'
+name: 오늘의 주요 일정 알림
+
+on:
+  schedule:
+    - cron: '0 22 * * *'
+  workflow_dispatch:          # 저장소 Actions 탭에서 손으로도 돌려볼 수 있음
+    inputs:
+      day_offset:
+        description: '며칠 뒤 것을 볼지 (0=오늘, 1=내일)'
+        required: false
+        default: '0'
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 오늘 주요 일정 보내기
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DAY_OFFSET: ${{ github.event.inputs.day_offset || '0' }}
+        run: node scripts/daily-digest.js
