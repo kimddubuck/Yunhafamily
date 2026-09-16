@@ -1,6 +1,10 @@
 {
   "sendAt": "07:00",
-  "recipients": [],
-  "lastSent": {},
-  "offset": 0
+  "recipients": [
+    "8040349447"
+  ],
+  "lastSent": {
+    "day": "2026-09-16"
+  },
+  "offset": 323889882
 }
