@@ -50,6 +50,13 @@
     .month-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .title-with-ver { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
     #daily-title, #month-title, #week-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* 날짜 팝업: 일정이 많아도 창 밖으로 안 넘치게 안쪽만 스크롤 */
+    .daypop-body { max-height: 56vh; overflow-y: auto; -webkit-overflow-scrolling: touch; margin: 4px 0 10px; }
+    .daypop-sec { font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 2px 6px; }
+    .daypop-sec:first-child { margin-top: 2px; }
+    .daypop-empty { padding: 26px 10px; text-align: center; color: var(--muted); font-size: 13px; }
+    .daypop-more { width: 100%; padding: 10px; margin-top: 2px; border: 1px dashed var(--line); background: transparent;
+      color: var(--muted); border-radius: 10px; font-family: inherit; font-size: 12.5px; cursor: pointer; }
     .app-ver-inline { font-size: 10px; color: #C4C1B8; font-weight: 400; flex-shrink: 0; letter-spacing: -0.02em; }
     .day-nav { border: none; background: transparent; color: var(--accent); font-size: 15px; cursor: pointer; padding: 2px 6px; border-radius: 8px; flex-shrink: 0; line-height: 1; }
     .day-nav:hover { background: var(--teal-soft, #EAF4F3); }
@@ -378,7 +385,7 @@
     <header class="header">
       <div class="head-row"><h1>오늘의 우리</h1><button class="hist-btn" onclick="openHistory()">🕘 수정내역</button></div>
       <div class="date" id="today">날짜 불러오는 중…</div>
-      <div class="app-ver">v136·패치</div>
+      <div class="app-ver">v137·패치</div>
     </header>
 
     <!-- 최근 수정 내역 -->
@@ -401,6 +408,19 @@
         <div class="sheet-title">📥 이 백업으로 되돌릴까요?</div>
         <div class="ow-note" id="restore-text"></div>
         <div class="sheet-btns"><button class="btn btn-cancel" onclick="closeRestore()">취소</button><button class="btn btn-save" onclick="confirmRestore()">네, 복원</button></div>
+      </div>
+    </div>
+
+    <!-- 날짜 팝업: 월간 달력에서 날짜를 누르면 그날 일정을 바로 보여줌 -->
+    <div class="modal" id="daypop-modal">
+      <div class="sheet">
+        <div class="sheet-title" id="daypop-title">일정</div>
+        <div class="daypop-body" id="daypop-body"></div>
+        <button class="daypop-more" onclick="dayPopDetail()">⌄ 아래에서 자세히 보기 (시계 · 시간표 · 수정)</button>
+        <div class="sheet-btns">
+          <button class="btn btn-cancel" onclick="closeDayPop()">닫기</button>
+          <button class="btn btn-save" onclick="dayPopAdd()">＋ 일정 추가</button>
+        </div>
       </div>
     </div>
 
@@ -567,7 +587,7 @@
     </div>
     <main class="content">
       <section class="screen active" id="screen-daily">
-        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v136</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
+        <div class="screen-title month-title-row"><span class="title-with-ver"><button class="day-nav" onclick="shiftDailyDate(-1)" aria-label="전날">◀</button><span id="daily-title">오늘</span><button class="day-nav" onclick="shiftDailyDate(1)" aria-label="다음날">▶</button><button class="day-today" id="day-today-btn" onclick="goDailyToday()" style="display:none">오늘</button></span><span style="display:flex;align-items:center;gap:4px;flex-shrink:0"><span class="app-ver-inline">v137</span><button class="hist-btn icon-btn" onclick="openHelp()" title="사용법" aria-label="사용법">❓</button><button class="hist-btn icon-btn" onclick="openHistory()" title="수정내역" aria-label="수정내역">🕘</button></span></div>
         <div class="people" id="people">
           <button class="person active" data-person="all"   onclick="pickPerson(this)">전체</button>
           <button class="person"        data-person="dad"   onclick="pickPerson(this)">아빠</button>
@@ -2050,11 +2070,50 @@
           labels += '<span class="cal-ev" style="background:' + people[ev.who].color + '">' + escapeHtml(calLabel(ev)) + '</span>';
         });
         if (evs.length > 2) labels += '<span class="cal-more">+' + (evs.length - 2) + '</span>';
-        html += '<div class="' + cls + '" onclick="selectDay(' + d + ')"><span class="cal-daynum">' + d + '</span><span class="cal-evs">' + labels + '</span></div>';
+        html += '<div class="' + cls + '" onclick="selectDay(' + d + ',1)"><span class="cal-daynum">' + d + '</span><span class="cal-evs">' + labels + '</span></div>';
       }
       document.getElementById('cal-grid').innerHTML = html;
     }
-    function selectDay(d) { if (dailyEditMode && eeCtxMonth) inlineCancelEdit(); selectedDate = d; renderMonth(); renderDayDetail(d); }
+    // fromTap 이 있을 때만 팝업을 띄운다 (앱 시작 시 자동 선택에선 안 뜨게)
+    function selectDay(d, fromTap) {
+      if (dailyEditMode && eeCtxMonth) inlineCancelEdit();
+      selectedDate = d; renderMonth(); renderDayDetail(d);
+      if (fromTap) openDayPop(d);
+    }
+
+    /* ===== 날짜 팝업 — 달력에서 누른 날의 일정을 바로 보여줌 =====
+       달력 칸은 좁아서 제목이 잘리고, 아래 상세는 스크롤을 내려야 보임.
+       그래서 누르는 즉시 그날 전체를 한 창에 띄운다. */
+    var dayPopDate = null;
+    function openDayPop(d) { dayPopDate = d; renderDayPop(); document.getElementById('daypop-modal').classList.add('open'); }
+    function closeDayPop() { dayPopDate = null; document.getElementById('daypop-modal').classList.remove('open'); }
+    function dayPopAdd() { closeDayPop(); openAdd(); }          // 그날 날짜가 기본값으로 들어감
+    function dayPopDetail() {                                    // 팝업 닫고 아래 상세로 데려가기
+      closeDayPop();
+      var el = document.getElementById('day-detail');
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function renderDayPop() {
+      if (dayPopDate == null) return;
+      var y = monthState.y, m = monthState.m, d = dayPopDate;
+      var full = ymdOf(y, m, d);
+      var dow = ['일', '월', '화', '수', '목', '금', '토'][new Date(y, m, d).getDay()];
+      var items = itemsForDate(full);
+      // 달력 칸에 뜨는 것(📌 월간 표시·메모)을 위로, 나머지 일과를 아래로
+      var top = items.filter(function (r) { return r.pin || r.todo; });
+      var rest = items.filter(function (r) { return !(r.pin || r.todo); });
+
+      var t = document.getElementById('daypop-title');
+      if (t) t.textContent = (m + 1) + '월 ' + d + '일 (' + dow + ')' + (full === todayStr ? ' · 오늘' : '');
+
+      var html = '';
+      if (top.length) html += '<div class="daypop-sec">📌 주요 일정</div><div class="list">' + listHTML(top, 'all', full) + '</div>';
+      if (rest.length) html += '<div class="daypop-sec">하루 일과 ' + rest.length + '개</div><div class="list">' + listHTML(rest, 'all', full) + '</div>';
+      if (!items.length) html = '<div class="daypop-empty">이 날은 일정이 없어요.<br>아래 ＋ 로 추가해보세요.</div>';
+
+      var b = document.getElementById('daypop-body');
+      if (b) b.innerHTML = html;
+    }
     function renderDayDetail(d) {
       if (dailyEditMode && eeCtxMonth) return;   // 월간 수정 표 사용 중엔 다시 그리지 않음 (입력 보호)
       var y = monthState.y, m = monthState.m, who = monthDetailPerson;
@@ -2140,7 +2199,7 @@
         if (typeof r.id !== 'number') r.id = nextId++; else if (r.id >= nextId) nextId = r.id + 1;
       });
     }
-    function refreshAll() { renderDaily(); drawWeek(); if (selectedDate) renderDayDetail(selectedDate); renderMonth(); if (currentTab === 'memo') renderMemos(); }
+    function refreshAll() { renderDaily(); drawWeek(); if (selectedDate) renderDayDetail(selectedDate); renderMonth(); if (currentTab === 'memo') renderMemos(); if (dayPopDate != null) renderDayPop(); }
 
     /* ============================================================
        📝 메모함 — 날짜·시간 없는 '언젠가 할 일'
